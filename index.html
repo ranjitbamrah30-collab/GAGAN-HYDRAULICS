@@ -746,7 +746,7 @@ function draw(){
     else if(S.screen==="users")content=drawUsers();
     else if(S.screen==="reports")content=drawReports();
     else content=drawHome();
-  }catch(e){content=dv("pg");var err=dv("card");err.style.color="#c62828";err.textContent="Error: "+e.message;content.appendChild(err);console.error(e);}
+  }catch(e){content=dv("pg");var err=dv("card");err.style.color="#c62828";err.textContent="Error: "+e.message+(e.stack?" | "+e.stack.split("\n")[1]:"");content.appendChild(err);console.error(e);}
   scr.appendChild(content);drawNav();
 }
 function loadAndDraw() {
