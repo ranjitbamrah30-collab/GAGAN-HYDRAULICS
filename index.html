@@ -401,7 +401,7 @@ function drawInspect(order,insp,allKeys,pass,fail,filled,pct) {
       var cbar=dv("fl ai gap8"); cbar.style.cssText="padding:10px 14px;background:#f8f9ff;border-top:1px solid #eee;flex-wrap:wrap";
       var cnm=mk("span"); cnm.style.cssText="background:#1565c0;color:#fff;border-radius:6px;padding:3px 10px;font-size:12px;font-weight:700"; cnm.textContent=code.codeNo;
       ap(cbar,cnm,code.description?document.createTextNode(" "+code.description):"");
-      if(code.image){var imgWrap=dv("");imgWrap.style.cssText="margin:10px 0;text-align:center";var imgEl=mk("img");imgEl.src=code.image;imgEl.style.cssText="max-width:100%;max-height:220px;object-fit:contain;border-radius:8px;border:1px solid #e0e0e0;cursor:pointer";imgEl.title="Click to enlarge";imgEl.onclick=function(){var ov=dv("");ov.style.cssText="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.85);z-index:9999;display:flex;align-items:center;justify-content:center";var bi=mk("img");bi.src=code.image;bi.style.cssText="max-width:95%;max-height:90vh;object-fit:contain;border-radius:8px";ov.appendChild(bi);ov.onclick=function(){document.body.removeChild(ov)};document.body.appendChild(ov);};imgWrap.appendChild(imgEl);cc.appendChild(imgWrap);}
+      
       var tw=dv("ts"); var tbl=mk("table"); var thead=mk("thead"); var hr=mk("tr");
       ["Dimension","Standard","Tolerance","Unit","Actual","Status","Inspector","Remarks"].forEach(function(h){var th=mk("th");th.textContent=h;hr.appendChild(th)});
       thead.appendChild(hr); tbl.appendChild(thead); var tbody=mk("tbody");
@@ -536,33 +536,16 @@ function drawCompDetail(){
   return pg;
 }
 function showCodeModal(comp,ex){
-  var f={codeNo:ex?ex.codeNo:"",description:ex?ex.description:"",image:ex?ex.image:""};
-  var c=dv(""); var imgPrev=mk("div");
-  function updateImgPreview(){
-    imgPrev.innerHTML="";
-    if(f.image){var im=mk("img");im.src=f.image;im.style.cssText="width:100%;max-height:200px;object-fit:contain;border-radius:8px;border:1px solid #e0e0e0;margin-top:8px";imgPrev.appendChild(im);}
-  }
+  var f={codeNo:ex?ex.codeNo:"",description:ex?ex.description:""};
+  var c=dv("");
   ap(c,
     fg("Code / Drawing / Part No *",ip("e.g. DRG-001",f.codeNo,function(v){f.codeNo=v})),
     fg("Description (optional)",ip("e.g. Front End Cap",f.description,function(v){f.description=v}))
   );
-  var imgLbl=dv("fg"); imgLbl.style.marginTop="12px";
-  var imgTitle=mk("label"); imgTitle.textContent="Reference Drawing / Image"; imgTitle.style.cssText="font-size:13px;font-weight:600;color:#444;display:block;margin-bottom:6px";
-  var imgInp=mk("input"); imgInp.type="file"; imgInp.accept="image/*";
-  imgInp.style.cssText="width:100%;padding:6px;border:1px solid #ddd;border-radius:8px;font-size:13px;box-sizing:border-box";
-  imgInp.onchange=function(){
-    var file=imgInp.files[0]; if(!file)return;
-    var rd=new FileReader(); rd.onload=function(e){f.image=e.target.result;updateImgPreview();};rd.readAsDataURL(file);
-  };
-  if(ex&&ex.image){f.image=ex.image;updateImgPreview();}
-  var clrBtn=bt("","✕ Remove Image",function(){f.image="";imgPrev.innerHTML="";});
-  clrBtn.style.cssText="background:none;border:none;color:#c62828;font-size:12px;cursor:pointer;padding:4px 0;display:block";
-  ap(imgLbl,imgTitle,imgInp,imgPrev,clrBtn);
-  c.appendChild(imgLbl);
   c.appendChild(bt("bp fw mt14",ex?"Save Changes":"Add Code",function(){
     if(!f.codeNo.trim())return;
-    if(ex){ss({master:S.master.map(function(c2){return c2.id!==comp.id?c2:Object.assign({},c2,{codes:c2.codes.map(function(k){return k.id!==ex.id?k:Object.assign({},k,{codeNo:f.codeNo,description:f.description,image:f.image})})})})});}
-    else{ss({master:S.master.map(function(c2){return c2.id!==comp.id?c2:Object.assign({},c2,{codes:c2.codes.concat([{id:gid(),codeNo:f.codeNo,description:f.description,image:f.image,dimensions:[]}])})})});}
+    if(ex){ss({master:S.master.map(function(c2){return c2.id!==comp.id?c2:Object.assign({},c2,{codes:c2.codes.map(function(k){return k.id!==ex.id?k:Object.assign({},k,{codeNo:f.codeNo,description:f.description,image:k.image||""})})})})});}
+    else{ss({master:S.master.map(function(c2){return c2.id!==comp.id?c2:Object.assign({},c2,{codes:c2.codes.concat([{id:gid(),codeNo:f.codeNo,description:f.description,image:"",dimensions:[]}])})})});}
     closeModal();
   }));
   modal(ex?"Edit Code":"Add Code",c);
@@ -576,6 +559,47 @@ function drawCodeDetail(){
   var bk=mk("button");bk.textContent="←";bk.style.cssText="background:rgba(255,255,255,.2);border:none;color:#fff;border-radius:6px;padding:4px 8px;cursor:pointer;font-size:14px;font-family:Arial,sans-serif";bk.onclick=function(){ss({screen:"compDetail"});};
   var left=dv("fl ai gap8");ap(left,bk,dv("pt",code.codeNo));var info=dv("");ap(info,left,dv("ps",comp.name+(code.description?" · "+code.description:"")));
   ap(hr,info,bt("bp sm","+ Add",function(){showDimModal(comp,code)}));hdr.appendChild(hr);pg.appendChild(hdr);
+  // Image section
+  var imgCard=dv("card"); imgCard.style.marginBottom="12px";
+  var imgHdr=dv("fl jsb ai"); imgHdr.style.marginBottom="8px";
+  var imgTitle=dv("","📐 Reference Drawing"); imgTitle.style.cssText="font-weight:700;font-size:14px;color:#1565c0";
+  var imgUpBtn=bt("bp sm","📷 "+(code.image?"Change":"Upload"),function(){
+    var inp=mk("input"); inp.type="file"; inp.accept="image/*";
+    inp.onchange=function(){
+      var file=inp.files[0]; if(!file)return;
+      var rd=new FileReader();
+      rd.onload=function(e){
+        var updated=Object.assign({},code,{image:e.target.result});
+        ss({master:S.master.map(function(c2){return c2.id!==comp.id?c2:Object.assign({},c2,{codes:c2.codes.map(function(k){return k.id!==code.id?k:updated})})})});
+      };
+      rd.readAsDataURL(file);
+    };
+    inp.click();
+  });
+  ap(imgHdr,imgTitle,imgUpBtn);
+  imgCard.appendChild(imgHdr);
+  if(code.image){
+    var imgEl=mk("img"); imgEl.src=code.image;
+    imgEl.style.cssText="width:100%;max-height:260px;object-fit:contain;border-radius:8px;border:1px solid #e0e0e0;cursor:pointer;display:block";
+    imgEl.title="Tap to enlarge";
+    imgEl.onclick=function(){
+      var ov=dv(""); ov.style.cssText="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.9);z-index:9999;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:16px";
+      var bi=mk("img"); bi.src=code.image; bi.style.cssText="max-width:95%;max-height:85vh;object-fit:contain;border-radius:8px";
+      var cl=bt("","✕ Close",function(){document.body.removeChild(ov);}); cl.style.cssText="background:rgba(255,255,255,0.2);border:none;color:#fff;padding:8px 24px;border-radius:20px;font-size:14px;cursor:pointer";
+      ap(ov,bi,cl); document.body.appendChild(ov);
+    };
+    imgCard.appendChild(imgEl);
+    var remBtn=bt("","✕ Remove Image",function(){
+      var updated=Object.assign({},code,{image:""});
+      ss({master:S.master.map(function(c2){return c2.id!==comp.id?c2:Object.assign({},c2,{codes:c2.codes.map(function(k){return k.id!==code.id?k:updated})})})});
+    });
+    remBtn.style.cssText="background:none;border:none;color:#c62828;font-size:12px;cursor:pointer;padding:4px 0;display:block;margin-top:6px";
+    imgCard.appendChild(remBtn);
+  } else {
+    var noImg=dv("","No drawing uploaded yet"); noImg.style.cssText="color:#aaa;font-size:13px;text-align:center;padding:20px 0";
+    imgCard.appendChild(noImg);
+  }
+  pg.appendChild(imgCard);
   if(!code.dimensions.length){pg.appendChild(dv("empty","📐 No dimensions yet."));return pg;}
   code.dimensions.forEach(function(dim){
     var card=dv("card");var top=dv("fl jsb ai");var l2=dv("fl ai gap8");
