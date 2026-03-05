@@ -1,0 +1,791 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<title>Gagan Hydraulics</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:Arial,sans-serif;background:#f0f4ff;font-size:15px;height:100vh;overflow:hidden}
+input,select,textarea,button{font-family:Arial,sans-serif;font-size:15px}
+#scr{position:fixed;top:0;left:0;right:0;bottom:64px;overflow-y:auto;-webkit-overflow-scrolling:touch}
+#nav{position:fixed;bottom:0;left:0;right:0;height:64px;background:#fff;border-top:2px solid #e0e0e0;display:flex;z-index:100}
+.ni{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;border:none;background:none;cursor:pointer;font-size:10px;font-weight:700;color:#aaa;font-family:Arial,sans-serif;text-transform:uppercase}
+.ni.on{color:#1565c0}
+.nic{font-size:22px}
+.pg{padding:12px 12px 20px}
+.ph{background:#1565c0;color:#fff;padding:14px 16px 12px;margin:-12px -12px 14px;position:sticky;top:0;z-index:50}
+.phr{display:flex;justify-content:space-between;align-items:center}
+.pt{font-size:17px;font-weight:700}
+.ps{font-size:12px;opacity:.8;margin-top:2px}
+.card{background:#fff;border-radius:12px;padding:14px;margin-bottom:10px;box-shadow:0 1px 6px rgba(0,0,0,.08)}
+.oc{background:#fff;border-radius:12px;padding:14px 16px;margin-bottom:10px;box-shadow:0 2px 8px rgba(0,0,0,.08);border-left:4px solid #1565c0;cursor:pointer}
+.oc.dn{border-left-color:#2e7d32}
+.osn{font-size:16px;font-weight:700;color:#1565c0}
+.opo{font-size:13px;color:#888;margin-top:2px}
+.ocu{font-size:14px;font-weight:700;margin-top:5px}
+.odt{font-size:12px;color:#888;margin-top:3px}
+.srow{display:flex;gap:10px;margin-bottom:14px}
+.sc{background:#fff;border-radius:10px;padding:12px;flex:1;text-align:center;box-shadow:0 1px 4px rgba(0,0,0,.07)}
+.sv{font-size:26px;font-weight:700;color:#1565c0}
+.sl{font-size:11px;color:#888;margin-top:2px}
+.btn{border:none;padding:13px 18px;border-radius:10px;cursor:pointer;font-size:15px;font-weight:700;font-family:Arial,sans-serif;min-height:48px}
+.bp{background:#1565c0;color:#fff}
+.bs{background:#f5f5f5;border:1px solid #ccc;color:#444}
+.bd{background:#c62828;color:#fff}
+.bg{background:#2e7d32;color:#fff}
+.sm{min-height:40px;padding:8px 14px;font-size:13px;border-radius:8px}
+.fw{width:100%}
+.mt{margin-top:10px}
+.mt14{margin-top:14px}
+.bdg{display:inline-flex;align-items:center;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:700}
+.mo{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;display:flex;flex-direction:column;justify-content:flex-end}
+.mb{background:#fff;border-radius:20px 20px 0 0;padding:20px 16px 30px;max-height:90vh;overflow-y:auto}
+.mh{width:40px;height:4px;background:#ddd;border-radius:2px;margin:0 auto 14px}
+.mtl{font-size:16px;font-weight:700;color:#1565c0;margin-bottom:16px;padding-bottom:10px;border-bottom:2px solid #e3f2fd}
+.fg{display:flex;flex-direction:column;gap:6px;margin-bottom:14px}
+label{font-size:13px;font-weight:700;color:#555}
+input,select,textarea{background:#f8f9ff;border:1px solid #ddd;border-radius:10px;padding:13px 14px;color:#222;width:100%;outline:none}
+textarea{resize:vertical;min-height:70px}
+.tabs{display:flex;background:#fff;border-radius:10px;padding:4px;margin-bottom:14px;box-shadow:0 1px 4px rgba(0,0,0,.07)}
+.tab{flex:1;padding:10px 4px;border:none;border-radius:8px;background:transparent;color:#888;font-size:12px;font-weight:700;cursor:pointer;font-family:Arial,sans-serif}
+.tab.on{background:#1565c0;color:#fff}
+.pbw{background:#e0e0e0;border-radius:5px;height:8px;overflow:hidden;margin:6px 0}
+.pbf{height:100%;background:#1565c0;border-radius:5px}
+.lf{background:#f5f7ff;border:1px solid #e8eaf6;border-radius:10px;padding:12px 14px;margin-bottom:8px}
+.ll{font-size:10px;color:#888;font-weight:700;text-transform:uppercase;margin-bottom:3px}
+.lv{font-size:14px;color:#222}
+.wb{background:#fff8e1;border:1px solid #ffcc80;border-radius:10px;padding:10px 14px;color:#e65100;font-size:13px;margin-bottom:12px}
+.cc{background:#fff;border-radius:12px;margin-bottom:10px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.08);border:2px solid transparent}
+.cc.rdy{border-color:#2e7d32}
+.ch{padding:14px;cursor:pointer;background:#f0f4ff;display:flex;justify-content:space-between;align-items:center;gap:8px}
+.ch.rdy{background:#f1f8f2}
+.ts{overflow-x:auto;-webkit-overflow-scrolling:touch}
+table{width:100%;border-collapse:collapse;min-width:580px}
+th{background:#1565c0;color:#fff;padding:10px;text-align:left;font-size:12px;white-space:nowrap}
+td{padding:9px 10px;font-size:13px;border-bottom:1px solid #f0f0f0;vertical-align:middle}
+td input,td select{padding:6px 8px;font-size:12px;border-radius:6px;min-width:80px}
+.mg{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.mc{background:#fff;border-radius:12px;padding:14px;box-shadow:0 1px 4px rgba(0,0,0,.08)}
+.ubrow{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px}
+.ub{padding:9px 14px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:700;border:2px solid #ddd;background:#fff;color:#777;min-height:42px;font-family:Arial,sans-serif}
+.ub.on{border-color:#1565c0;background:#e3f2fd;color:#1565c0}
+.sg{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px}
+.empty{text-align:center;padding:40px 20px;color:#aaa;font-size:14px}
+.xi{background:transparent;border:1px solid #ddd;color:#aaa;height:34px;width:34px;border-radius:8px;cursor:pointer;font-size:16px;flex-shrink:0;display:flex;align-items:center;justify-content:center}
+.fl{display:flex}.gap8{gap:8px}.gap10{gap:10px}.ai{align-items:center}.jsb{justify-content:space-between}
+</style>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+</head>
+<body>
+<div id="scr"></div>
+<div id="nav"></div>
+<script>
+var STAGES = ["Waiting","Fabrication","Fitting","Paint","Re-Assembly","Ready to Dispatch","Delivered"];
+var SC = {
+  "Waiting":          {bg:"#f5f5f5", color:"#888",    icon:"⏳"},
+  "Fabrication":      {bg:"#e3f2fd", color:"#1565c0", icon:"🔧"},
+  "Fitting":          {bg:"#e8eaf6", color:"#3949ab", icon:"🔩"},
+  "Paint":            {bg:"#fce4ec", color:"#c2185b", icon:"🎨"},
+  "Re-Assembly":      {bg:"#fff3e0", color:"#e65100", icon:"⚙"},
+  "Ready to Dispatch":{bg:"#e8f5e9", color:"#2e7d32", icon:"✅"},
+  "Delivered":        {bg:"#ede7f6", color:"#6a1b9a", icon:"🚚"}
+};
+var ROLES = {
+  admin:    {label:"Admin",    color:"#1565c0", bg:"#e3f2fd"},
+  inspector:{label:"Inspector",color:"#2e7d32", bg:"#e8f5e9"},
+  manager:  {label:"Manager",  color:"#6a1b9a", bg:"#f3e5f5"},
+  customer: {label:"Customer", color:"#e65100", bg:"#fff8e1"}
+};
+var UNITS = ["mm","inch","°","N/A"];
+var SCOL = {
+  Pending:       {bg:"#f5f5f5", text:"#888",    bd:"#ccc"},
+  Pass:          {bg:"#e8f5e9", text:"#2e7d32", bd:"#a5d6a7"},
+  Fail:          {bg:"#ffebee", text:"#c62828", bd:"#ef9a9a"},
+  "Under Review":{bg:"#fff8e1", text:"#e65100", bd:"#ffcc80"}
+};
+var DM = [
+  {id:"body_sz",  name:"Body Size",     codes:[]},
+  {id:"cyl_tube", name:"Cylinder Tube", codes:[]},
+  {id:"cyl_rod",  name:"Cylinder Rod",  codes:[]},
+  {id:"slide_rod",name:"Slide Rod",     codes:[]},
+  {id:"front_s",  name:"Front Side",    codes:[]},
+  {id:"rear_s",   name:"Rear Side",     codes:[]},
+  {id:"clamp",    name:"Clamp",         codes:[]},
+  {id:"lin_base", name:"Linear Base",   codes:[]},
+  {id:"bed_pl",   name:"Bed Plate",     codes:[]},
+  {id:"hyd_man",  name:"Hyd Manifold",  codes:[]},
+  {id:"hose_p",   name:"Hose Pipe",     codes:[]},
+  {id:"fit_us",   name:"Fitting Used",  codes:[]}
+];
+var DU = [
+  {id:"u1",name:"Admin User",    username:"admin",    password:"admin123",   role:"admin"},
+  {id:"u2",name:"John Inspector",username:"inspector",password:"inspect123", role:"inspector"},
+  {id:"u3",name:"Sarah Manager", username:"manager",  password:"manager123", role:"manager"}
+];
+
+function gid() { return Date.now().toString(36) + Math.random().toString(36).substr(2,4); }
+function fd(d) {
+  if (!d) return "—";
+  try { return new Date(d).toLocaleDateString("en-IN",{day:"2-digit",month:"short",year:"numeric"}); }
+  catch(e) { return d; }
+}
+function lsGet(k,def) {
+  try { var v = localStorage.getItem(k); return v ? JSON.parse(v) : def; }
+  catch(e) { return def; }
+}
+function lsSet(k,v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch(e) {} }
+
+var db = null;
+try {
+  firebase.initializeApp({
+    apiKey: "AIzaSyAgb3ijuRgXnkATF9qvuBuwk0hmmNGblic",
+    authDomain: "gagan-9ad0a.firebaseapp.com",
+    projectId: "gagan-9ad0a",
+    storageBucket: "gagan-9ad0a.firebasestorage.app",
+    messagingSenderId: "436403153997",
+    appId: "1:436403153997:web:44cef936934b64e9e4c004"
+  });
+  db = firebase.firestore();
+  console.log("Firebase OK, db=", db);
+} catch(e) { console.error("Firebase INIT FAILED:", e); }
+
+function showSyncStatus(msg, color) {
+  var el = document.getElementById("syncStatus");
+  if (!el) {
+    el = document.createElement("div");
+    el.id = "syncStatus";
+    el.style.cssText = "position:fixed;bottom:70px;left:8px;right:8px;background:"+color+";color:#fff;padding:10px 16px;border-radius:8px;font-size:14px;font-weight:700;z-index:9999;text-align:center";
+    document.body.appendChild(el);
+  }
+  el.style.background = color;
+  el.style.opacity = "1";
+  el.textContent = msg;
+  clearTimeout(el._t);
+  el._t = setTimeout(function(){el.style.opacity="0.4";}, 5000);
+}
+
+function syncUp(key, data) {
+  lsSet("gh_" + key[0], data);
+  if (!db) { showSyncStatus("No Firebase!", "#f44336"); return; }
+  showSyncStatus("Saving " + key + "...", "#1565c0");
+  db.collection("gh").doc(key).set({d: JSON.stringify(data)})
+    .then(function(){ showSyncStatus("Saved: " + key, "#2e7d32"); })
+    .catch(function(e){ showSyncStatus("FAILED: " + e.code, "#f44336"); console.error("syncUp err", key, e); });
+}
+
+var S = {
+  master: lsGet("gh_m", DM),
+  orders: lsGet("gh_o", []),
+  users:  lsGet("gh_u", DU),
+  screen: "home", htab: "running", otab: "details",
+  ord: null, comp: null, code: null
+};
+
+function ss(p) {
+  for (var k in p) S[k] = p[k];
+  if (p.master !== undefined) syncUp("master", S.master);
+  if (p.orders !== undefined) syncUp("orders", S.orders);
+  if (p.users  !== undefined) syncUp("users",  S.users);
+  draw();
+}
+
+function mk(tag, cls) { var e = document.createElement(tag); if (cls) e.className = cls; return e; }
+function dv(cls, txt) { var d = mk("div",cls); if (txt !== undefined) d.textContent = txt; return d; }
+function ap(p) {
+  for (var i=1;i<arguments.length;i++) {
+    var c=arguments[i];
+    if (c==null||c===false||c===undefined) continue;
+    if (typeof c==="string"||typeof c==="number") p.appendChild(document.createTextNode(String(c)));
+    else p.appendChild(c);
+  }
+  return p;
+}
+function bt(cls, txt, fn) { var b=mk("button","btn "+cls); b.textContent=txt; b.onclick=fn; return b; }
+function ip(ph, val, fn, tp) { var i=mk("input"); i.placeholder=ph||""; i.value=val||""; i.type=tp||"text"; i.oninput=function(){fn(i.value);}; return i; }
+function bdg(txt, bgc, col) { var s=mk("span","bdg"); s.textContent=txt; s.style.background=bgc; s.style.color=col; s.style.border="1px solid "+col+"40"; return s; }
+function fg(lbl, fld) { var w=dv("fg"); var l=mk("label"); l.textContent=lbl; w.appendChild(l); w.appendChild(fld); return w; }
+
+var _mo = null;
+function modal(title, content) {
+  closeModal();
+  var o=dv("mo"); var b=dv("mb");
+  ap(b, dv("mh"), dv("mtl",title), content);
+  o.appendChild(b);
+  o.onclick = function(e) { if (e.target===o) closeModal(); };
+  document.body.appendChild(o); _mo=o;
+  b.style.transform="translateY(100%)";
+  requestAnimationFrame(function(){ b.style.transition="transform .25s"; b.style.transform="translateY(0)" });
+}
+function closeModal() { if (_mo) { _mo.remove(); _mo=null; } }
+function confirmDel(msg, fn) {
+  var c=dv(""); var p=mk("p"); p.textContent=msg; p.style.cssText="color:#444;font-size:14px;margin-bottom:16px";
+  var r=dv("fl gap10"); r.style.justifyContent="flex-end";
+  ap(r, bt("bs sm","Cancel",closeModal), bt("bd sm","DELETE",function(){fn();closeModal()}));
+  ap(c,p,r); modal("Confirm Delete",c);
+}
+
+function drawNav() {
+  var nav=document.getElementById("nav"); nav.innerHTML="";
+  var items=[{id:"home",ic:"📋",lb:"Orders"},{id:"reports",ic:"📊",lb:"Reports"},{id:"master",ic:"⚙",lb:"Master"},{id:"users",ic:"👥",lb:"Users"}];
+  var active=S.screen;
+  if (S.screen==="order") active="home";
+  if (S.screen==="compDetail"||S.screen==="codeDetail") active="master";
+  items.forEach(function(item) {
+    var b=dv("ni"+(active===item.id?" on":""));
+    ap(b,dv("nic",item.ic),item.lb);
+    b.onclick=(function(id){return function(){ss({screen:id});}})(item.id);
+    nav.appendChild(b)
+  });
+}
+
+function drawHome() {
+  var run=[],done=[];
+  S.orders.forEach(function(o){(o.done?done:run).push(o)});
+  run.sort(function(a,b){return new Date(a.orderDate)-new Date(b.orderDate)});
+  done.sort(function(a,b){return new Date(b.orderDate)-new Date(a.orderDate)});
+  var pg=dv("pg"); var hdr=dv("ph"); var hr=dv("phr");
+  var left=dv(""); ap(left,dv("pt","📦 Order Tracking"),dv("ps","Gagan Hydraulics"));
+  ap(hr,left,bt("bp sm","+ New",function(){showOrderModal()}));
+  hdr.appendChild(hr); pg.appendChild(hdr);
+  var sr=dv("srow");
+  [{v:S.orders.length,l:"Total"},{v:run.length,l:"Running"},{v:done.length,l:"Completed"}].forEach(function(s){
+    var sc=dv("sc"); ap(sc,dv("sv",String(s.v)),dv("sl",s.l)); sr.appendChild(sc)
+  });
+  pg.appendChild(sr);
+  var tabs=dv("tabs");
+  var rt=dv("tab"+(S.htab==="running"?" on":""),"🔧 Running ("+run.length+")");
+  var dt=dv("tab"+(S.htab==="completed"?" on":""),"✅ Done ("+done.length+")");
+  rt.onclick=function(){S.htab="running";draw();};
+  dt.onclick=function(){S.htab="completed";draw();};
+  ap(tabs,rt,dt); pg.appendChild(tabs);
+  var list=S.htab==="running"?run:done;
+  if (!list.length) {
+    pg.appendChild(dv("empty",S.htab==="running"?"🔧 No running orders yet":"✅ No completed orders yet"));
+  } else {
+    list.forEach(function(order) {
+      var stg=order.stage||"Waiting"; var sc=SC[stg]||SC["Waiting"];
+      var card=dv("oc"+(order.done?" dn":""));
+      card.onclick=(function(o){return function(){ss({screen:"order",ord:o,otab:"details"});}})(order);
+      var top=dv("fl jsb ai");
+      ap(top,dv("osn",order.sn),order.done?bdg("✓ Done","#e8f5e9","#2e7d32"):bdg("Running","#e3f2fd","#1565c0"));
+      var dots=dv("fl ai"); dots.style.cssText="margin:8px 0 6px";
+      STAGES.forEach(function(s,i){
+        var sc2=SC[s]; var passed=STAGES.indexOf(stg)>=i; var cur=stg===s;
+        var dot=mk("div"); dot.style.cssText="width:9px;height:9px;border-radius:50%;flex-shrink:0;background:"+(passed?sc2.color:"#e0e0e0")+(cur?";border:2px solid "+sc2.color:"");
+        dots.appendChild(dot);
+        if (i<STAGES.length-1){var line=mk("div");line.style.cssText="flex:1;height:2px;min-width:6px;background:"+(STAGES.indexOf(stg)>i?sc2.color:"#e0e0e0");dots.appendChild(line);}
+      });
+      var sb=mk("div"); sb.style.cssText="display:inline-flex;align-items:center;gap:5px;background:"+sc.bg+";color:"+sc.color+";border:1px solid "+sc.color+"40;border-radius:20px;padding:4px 12px;font-size:12px;font-weight:700"; sb.textContent=sc.icon+" "+stg;
+      var foot=dv("fl jsb ai"); foot.style.marginTop="8px";
+      var tap=dv("","Tap to open"); tap.style.cssText="font-size:12px;color:#aaa";
+      var arr=dv("","→"); arr.style.cssText="color:#1565c0;font-weight:700;font-size:14px";
+      ap(foot,tap,arr);
+      ap(card,top,dv("opo","PO: "+order.po),dv("ocu",order.cust),dv("odt","Order: "+fd(order.orderDate)+" · Delivery: "+fd(order.delivery)),dots,sb,foot);
+      pg.appendChild(card)
+    });
+  }
+  return pg;
+}
+
+function showOrderModal(ex) {
+  var f=ex?{sn:ex.sn,po:ex.po,cust:ex.cust,orderDate:ex.orderDate,delivery:ex.delivery,stage:ex.stage||"Waiting"}:{sn:"",po:"",cust:"",orderDate:"",delivery:"",stage:"Waiting"};
+  var c=dv("");
+  ap(c,fg("Serial No *",ip("e.g. SN-001",f.sn,function(v){f.sn=v})),fg("PO Number *",ip("e.g. PO-7890",f.po,function(v){f.po=v})),fg("Customer *",ip("e.g. Tata Motors",f.cust,function(v){f.cust=v})),fg("Order Date *",ip("",f.orderDate,function(v){f.orderDate=v;},"date")),fg("Delivery Date *",ip("",f.delivery,function(v){f.delivery=v;},"date")));
+  var sw=dv("fg"); var sl=mk("label"); sl.textContent="Process Stage"; var sr=dv("ubrow");
+  STAGES.forEach(function(s){
+    var sc=SC[s]; var b=dv("ub"+(f.stage===s?" on":""),sc.icon+" "+s);
+    if (f.stage===s){b.style.borderColor=sc.color;b.style.background=sc.bg;b.style.color=sc.color;}
+    b.onclick=(function(stage,btn){return function(){f.stage=stage;sr.querySelectorAll(".ub").forEach(function(x){x.className="ub";x.style.cssText=""});var sc2=SC[stage];btn.className="ub on";btn.style.borderColor=sc2.color;btn.style.background=sc2.bg;btn.style.color=sc2.color;}})(s,b);
+    sr.appendChild(b)
+  });
+  ap(sw,sl,sr); c.appendChild(sw);
+  c.appendChild(bt("bp fw mt14",ex?"Save Changes":"Create Order",function(){
+    if (!f.sn||!f.po||!f.cust||!f.orderDate||!f.delivery) return;
+    if (ex){var upd=Object.assign({},ex,f);ss({orders:S.orders.map(function(o){return o.id===ex.id?upd:o}),ord:upd});}
+    else{f.id=gid();ss({orders:S.orders.concat([f])});}
+    closeModal()
+  }));
+  modal(ex?"Edit Order":"New Order",c);
+}
+
+function saveOrder(order) { S.orders=S.orders.map(function(o){return o.id===order.id?order:o}); syncUp("orders",S.orders); S.ord=order; }
+
+function drawOrder() {
+  var order=null;
+  for (var i=0;i<S.orders.length;i++){if(S.orders[i].id===S.ord.id){order=S.orders[i];break;}}
+  if (!order) order=S.ord;
+  var insp=order.inspection||{};
+  var allKeys=[];
+  S.master.forEach(function(comp){comp.codes.forEach(function(code){code.dimensions.forEach(function(dim){allKeys.push(comp.id+"__"+code.id+"__"+dim.id)})})});
+  var pass=0,fail=0,filled=0;
+  allKeys.forEach(function(k){var r=insp[k];if(r&&r.status){if(r.status==="Pass")pass++;else if(r.status==="Fail")fail++;if(r.status!=="Pending")filled++;}});
+  var pct=allKeys.length>0?Math.round(filled/allKeys.length*100):0;
+  var pg=dv("pg"); var hdr=dv("ph"); var stg=order.stage||"Waiting";
+  var toprow=dv("fl ai gap8"); toprow.style.marginBottom="8px";
+  var bk=mk("button"); bk.textContent="← Back"; bk.style.cssText="background:rgba(255,255,255,.2);border:none;color:#fff;border-radius:6px;padding:4px 10px;cursor:pointer;font-size:14px;font-weight:700;font-family:Arial,sans-serif"; bk.onclick=function(){ss({screen:"home"});};
+  var snrow=dv("fl ai gap8"); ap(snrow,dv("pt",order.sn),bdg(order.po,"rgba(255,255,255,.2)","#fff"));
+  var info=dv(""); ap(info,snrow,dv("ps",order.cust)); ap(toprow,bk,info);
+  var btns=dv("fl"); btns.style.cssText="gap:8px;flex-wrap:wrap;margin-top:4px";
+  function hbtn(lbl,fn){var b=mk("button");b.textContent=lbl;b.style.cssText="background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.4);color:#fff;border-radius:8px;padding:7px 12px;font-size:12px;font-weight:700;cursor:pointer;font-family:Arial,sans-serif";b.onclick=fn;return b;}
+  ap(btns,hbtn("✎ Edit",function(){showOrderModal(order)}),hbtn("📍 "+stg,function(){showStageModal(order)}),hbtn("⬇ PDF",function(){exportInspPDF(order,S.master,insp)}));
+  ap(hdr,toprow,btns); pg.appendChild(hdr);
+  var tabs=dv("tabs");
+  [{id:"details",lb:"📋 Details"},{id:"inspection",lb:"🔬 Inspect"},{id:"summary",lb:"📊 Summary"}].forEach(function(t){
+    var tb=dv("tab"+(S.otab===t.id?" on":""),t.lb);
+    tb.onclick=(function(id){return function(){S.otab=id;draw();}})(t.id);
+    tabs.appendChild(tb)
+  });
+  pg.appendChild(tabs);
+  if (S.otab==="details") pg.appendChild(drawDetails(order));
+  else if (S.otab==="inspection") pg.appendChild(drawInspect(order,insp,allKeys,pass,fail,filled,pct));
+  else pg.appendChild(drawSummary(insp));
+  return pg;
+}
+
+function drawDetails(order) {
+  var w=dv(""); var specs=order.specs; var card=dv("card");
+  var hd=dv("fl ai gap8"); hd.style.marginBottom="12px";
+  var ht=dv("","Machine Specs"); ht.style.cssText="font-size:13px;font-weight:700;color:#1565c0;text-transform:uppercase";
+  ap(hd,ht,specs?bdg("🔒 Locked","#e8f5e9","#2e7d32"):""); card.appendChild(hd);
+  if (specs) {
+    [["Model",specs.model],["Motor",specs.motor],["Pump",specs.pump],["Tank Size",specs.tank],["Cylinder Size",specs.cyl],["Specifications",specs.spec],["Accessories",specs.acc]].forEach(function(a){
+      if (!a[1]) return; var lf=dv("lf"); ap(lf,dv("ll",a[0]),dv("lv",a[1])); card.appendChild(lf)
+    });
+  } else {
+    card.appendChild(dv("wb","⚠ Fill specs below. Once saved, fields are locked permanently."));
+    var f={model:"",motor:"",pump:"",tank:"",cyl:"",spec:"",acc:""};
+    [["Model Number","model","e.g. HM-5000"],["Motor","motor","e.g. Siemens 11kW"],["Pump","pump","e.g. Vickers 28cc"],["Tank Size","tank","e.g. 200L"],["Cylinder Size","cyl","e.g. 80x500mm"]].forEach(function(a){
+      card.appendChild(fg(a[0],ip(a[2],"", (function(key){return function(v){f[key]=v;}})(a[1]))))
+    });
+    var sta=mk("textarea"); sta.placeholder="Technical specifications..."; sta.oninput=function(){f.spec=sta.value;};
+    var ata=mk("textarea"); ata.placeholder="Extra accessories..."; ata.oninput=function(){f.acc=ata.value;};
+    card.appendChild(fg("Specifications",sta)); card.appendChild(fg("Accessories",ata));
+    card.appendChild(bt("bp fw mt14","🔒 Save & Lock Specs",function(){var up=Object.assign({},order,{specs:Object.assign({},f)});saveOrder(up);draw()}));
+  }
+  w.appendChild(card); return w;
+}
+
+function drawInspect(order,insp,allKeys,pass,fail,filled,pct) {
+  var w=dv(""); var prog=dv("card");
+  var prow=dv("fl jsb ai");
+  var pl=dv("","PROGRESS"); pl.style.cssText="font-weight:700;font-size:13px;color:#555";
+  var pr=dv("",pct+"% — "+filled+"/"+allKeys.length); pr.style.cssText="font-weight:700;color:#1565c0";
+  ap(prow,pl,pr);
+  var pb=dv("pbw"); var pbf=dv("pbf"); pbf.style.width=pct+"%"; pb.appendChild(pbf);
+  var pst=dv("fl gap8"); pst.style.marginTop="6px";
+  var pss=dv("","✓ "+pass); pss.style.cssText="color:#2e7d32;font-weight:600;font-size:13px";
+  var psf=dv("","✗ "+fail); psf.style.cssText="color:#c62828;font-weight:600;font-size:13px";
+  var psp=dv("","◌ "+(allKeys.length-filled)); psp.style.cssText="color:#888;font-size:13px";
+  ap(pst,pss,psf,psp); ap(prog,prow,pb,pst);
+  if (!order.done){prog.appendChild(bt("bg fw mt","✓ Mark Complete",function(){var up=Object.assign({},order,{done:true});saveOrder(up);draw()}));}
+  w.appendChild(prog);
+  var active=S.master.filter(function(c){return c.codes.some(function(k){return k.dimensions.length>0})});
+  if (!active.length){w.appendChild(dv("wb","⚠ No dimensions in Master Menu yet."));return w;}
+  active.forEach(function(comp,ci){
+    var codes=comp.codes.filter(function(k){return k.dimensions.length>0});
+    if (!codes.length) return;
+    var isRdy=insp["__r__"+comp.id]&&insp["__r__"+comp.id].ready;
+    var ckeys=[];
+    codes.forEach(function(k){k.dimensions.forEach(function(d){ckeys.push(comp.id+"__"+k.id+"__"+d.id)})});
+    var cf=ckeys.filter(function(k){return insp[k]&&insp[k].status&&insp[k].status!=="Pending"}).length;
+    var cc=dv("cc"+(isRdy?" rdy":"")); var ch=dv("ch"+(isRdy?" rdy":""));
+    var arrow=dv("","▶"); arrow.style.cssText="font-size:14px;color:#999;flex-shrink:0";
+    var ti=dv(""); ti.style.flex="1";
+    var tnr=dv("fl ai gap8"); var tnm=dv("",String(ci+1)+". "+comp.name); tnm.style.cssText="font-weight:700;font-size:14px";
+    ap(tnr,arrow,tnm,isRdy?bdg("✓","#e8f5e9","#2e7d32"):"");
+    var tsb=dv("",cf+"/"+ckeys.length+" inspected"); tsb.style.cssText="font-size:12px;color:#666;margin-top:3px";
+    ap(ti,tnr,tsb);
+    var rb=mk("button"); rb.textContent=isRdy?"✕ Not Ready":"✓ Ready";
+    rb.style.cssText="background:"+(isRdy?"#c62828":"#2e7d32")+";color:#fff;border:none;border-radius:8px;padding:8px 12px;font-size:12px;font-weight:700;cursor:pointer;min-height:40px;white-space:nowrap;font-family:Arial,sans-serif";
+    rb.onclick=(function(cid,wasRdy){return function(e){e.stopPropagation();var ni=Object.assign({},insp);ni["__r__"+cid]={ready:!wasRdy};var up=Object.assign({},order,{inspection:ni});saveOrder(up);Object.assign(insp,ni);draw();}})(comp.id,isRdy);
+    ap(ch,ti,rb);
+    var body=dv(""); body.style.display="none";
+    ch.onclick=(function(bd,ar,rbtn){return function(e){if(e.target===rbtn||rbtn.contains(e.target))return;var open=bd.style.display!=="none";bd.style.display=open?"none":"block";ar.textContent=open?"▶":"▼";ar.style.color=open?"#999":"#1565c0";}})(body,arrow,rb);
+    ap(cc,ch,body);
+    codes.forEach(function(code){
+      var cbar=dv("fl ai gap8"); cbar.style.cssText="padding:10px 14px;background:#f8f9ff;border-top:1px solid #eee;flex-wrap:wrap";
+      var cnm=mk("span"); cnm.style.cssText="background:#1565c0;color:#fff;border-radius:6px;padding:3px 10px;font-size:12px;font-weight:700"; cnm.textContent=code.codeNo;
+      ap(cbar,cnm,code.description?document.createTextNode(" "+code.description):"");
+      var tw=dv("ts"); var tbl=mk("table"); var thead=mk("thead"); var hr=mk("tr");
+      ["Dimension","Standard","Tolerance","Unit","Actual","Status","Inspector","Remarks"].forEach(function(h){var th=mk("th");th.textContent=h;hr.appendChild(th)});
+      thead.appendChild(hr); tbl.appendChild(thead); var tbody=mk("tbody");
+      code.dimensions.forEach(function(dim){
+        var key=comp.id+"__"+code.id+"__"+dim.id;
+        var row=Object.assign({actual:"",status:"Pending",inspector:"",remarks:""},insp[key]||{});
+        var sc=SCOL[row.status]||SCOL.Pending; var tr=mk("tr");
+        function upd(field,val){row[field]=val;var ni=Object.assign({},insp);ni[key]=Object.assign({},row);var up=Object.assign({},order,{inspection:ni});saveOrder(up);Object.assign(insp,ni);}
+        var sel=mk("select"); sel.style.cssText="background:"+sc.bg+";color:"+sc.text+";border:1px solid "+sc.bd+";padding:6px 4px;border-radius:6px;font-size:12px;width:120px";
+        ["Pending","Pass","Fail","Under Review"].forEach(function(s){var o=mk("option");o.value=s;o.textContent=s;if(s===row.status)o.selected=true;sel.appendChild(o)});
+        sel.onchange=function(){upd("status",sel.value);var nsc=SCOL[sel.value]||SCOL.Pending;sel.style.background=nsc.bg;sel.style.color=nsc.text;sel.style.borderColor=nsc.bd;};
+        var ai=ip("actual",row.actual,function(v){upd("actual",v)});
+        var ii=ip("name",row.inspector,function(v){upd("inspector",v)});
+        var ri=ip("remarks",row.remarks,function(v){upd("remarks",v)});
+        function td(content){var t=mk("td");if(typeof content==="string")t.textContent=content;else t.appendChild(content);return t;}
+        var dn=mk("td"); dn.textContent=dim.name; dn.style.fontWeight="700"; dn.style.whiteSpace="nowrap";
+        var ut=mk("td"); ut.appendChild(bdg(dim.unit,"#e3f2fd","#1565c0"));
+        ap(tr,dn,td(dim.standardValue||"—"),td("±"+(dim.tolerance||"—")),ut,td(ai),td(sel),td(ii),td(ri));
+        tbody.appendChild(tr)
+      });
+      tbl.appendChild(tbody); tw.appendChild(tbl); ap(body,cbar,tw)
+    });
+    w.appendChild(cc)
+  });
+  return w;
+}
+
+function drawSummary(insp) {
+  var allKeys=[];
+  S.master.forEach(function(c){c.codes.forEach(function(k){k.dimensions.forEach(function(d){allKeys.push(c.id+"__"+k.id+"__"+d.id)})})});
+  var total=allKeys.length,pass=0,fail=0;
+  allKeys.forEach(function(k){var r=insp[k];if(r){if(r.status==="Pass")pass++;else if(r.status==="Fail")fail++;}});
+  var w=dv(""); var sg=dv("sg");
+  [{l:"Total",v:total,c:"#1565c0"},{l:"Pass",v:pass,c:"#2e7d32"},{l:"Fail",v:fail,c:"#c62828"},{l:"Pending",v:total-pass-fail,c:"#888"}].forEach(function(s){
+    var card=dv("card"); card.style.textAlign="center";
+    var sv=dv("",String(s.v)); sv.style.cssText="font-size:28px;font-weight:700;color:"+s.c;
+    var sl2=dv("",s.l); sl2.style.cssText="font-size:12px;color:#666;margin-top:2px";
+    ap(card,sv,sl2); sg.appendChild(card)
+  });
+  w.appendChild(sg);
+  S.master.forEach(function(comp){
+    comp.codes.forEach(function(code){
+      if (!code.dimensions.length) return;
+      var keys=code.dimensions.map(function(d){return comp.id+"__"+code.id+"__"+d.id});
+      var t=keys.length,p=0,f=0;
+      keys.forEach(function(k){var r=insp[k];if(r){if(r.status==="Pass")p++;else if(r.status==="Fail")f++;}});
+      var pe=t-p-f; var rdy=insp["__r__"+comp.id]&&insp["__r__"+comp.id].ready;
+      var res=f>0?"FAIL":pe===0&&p===t?"PASS":"PENDING";
+      var rc=res==="PASS"?"#2e7d32":res==="FAIL"?"#c62828":"#888";
+      var card=dv("card"); var top=dv("fl jsb ai"); var info=dv("");
+      var nm=dv("",comp.name); nm.style.fontWeight="700";
+      var cn=dv("",code.codeNo); cn.style.cssText="color:#1565c0;font-weight:700;font-size:13px";
+      ap(info,nm,cn); ap(top,info,bdg(res,res==="PASS"?"#e8f5e9":res==="FAIL"?"#ffebee":"#f5f5f5",rc));
+      var stats=dv("fl gap8"); stats.style.cssText="margin-top:8px;font-size:13px;align-items:center;flex-wrap:wrap";
+      var sp=dv("","✓ "+p); sp.style.color="#2e7d32";
+      var sf=dv("","✗ "+f); sf.style.color="#c62828";
+      var se=dv("","◌ "+pe); se.style.color="#888";
+      ap(stats,sp,sf,se,bdg(rdy?"✓ Ready":"Not Ready",rdy?"#e8f5e9":"#f5f5f5",rdy?"#2e7d32":"#888"));
+      ap(card,top,stats); w.appendChild(card)
+    })
+  });
+  return w;
+}
+
+function showStageModal(order) {
+  var c=dv("");
+  STAGES.forEach(function(s,i){
+    var sc=SC[s]; var cur=(order.stage||"Waiting")===s;
+    var r=mk("button"); r.style.cssText="width:100%;display:flex;align-items:center;gap:12px;padding:13px 14px;border-radius:10px;margin-bottom:8px;border:2px solid "+(cur?sc.color:"#eee")+";background:"+(cur?sc.bg:"#fafafa")+";cursor:pointer;font-family:Arial,sans-serif;text-align:left";
+    var ic=mk("span"); ic.style.fontSize="22px"; ic.textContent=sc.icon;
+    var info=dv(""); var nm=dv("",s); nm.style.cssText="font-weight:700;font-size:14px;color:"+(cur?sc.color:"#222");
+    var sub=dv("","Step "+(i+1)+" of "+STAGES.length); sub.style.cssText="font-size:12px;color:#aaa;margin-top:2px";
+    ap(info,nm,sub); ap(r,ic,info);
+    if (cur){var dot=mk("span");dot.style.cssText="margin-left:auto;color:"+sc.color+";font-weight:700;font-size:18px";dot.textContent="●";r.appendChild(dot);}
+    r.onclick=(function(stage){return function(){var up=Object.assign({},order,{stage:stage});saveOrder(up);closeModal();draw();}})(s);
+    c.appendChild(r)
+  });
+  modal("📍 Process Stage",c);
+}
+
+function drawMaster() {
+  var pg=dv("pg"); var hdr=dv("ph"); var hr=dv("phr");
+  var left=dv(""); ap(left,dv("pt","⚙ Master Library"),dv("ps","Gagan Hydraulics"));
+  ap(hr,left,bt("bp sm","+ Add",function(){showAddComp()}));
+  hdr.appendChild(hr); pg.appendChild(hdr);
+  var tc=0,td2=0;
+  S.master.forEach(function(c){tc+=c.codes.length;c.codes.forEach(function(k){td2+=k.dimensions.length})});
+  var sr=dv("srow");
+  [{v:S.master.length,l:"Components"},{v:tc,l:"Codes"},{v:td2,l:"Dims"}].forEach(function(s){var sc=dv("sc");ap(sc,dv("sv",String(s.v)),dv("sl",s.l));sr.appendChild(sc)});
+  pg.appendChild(sr);
+  var grid=dv("mg");
+  S.master.forEach(function(comp,i){
+    var dc=comp.codes.reduce(function(a,k){return a+k.dimensions.length;},0);
+    var card=dv("mc"); var top=dv("fl jsb ai"); var info=dv("");
+    var num=dv("","#"+String(i+1).padStart(2,"0")); num.style.cssText="font-size:10px;color:#1565c0;font-weight:700;text-transform:uppercase;margin-bottom:3px";
+    var nm=dv("",comp.name); nm.style.cssText="font-size:14px;font-weight:700";
+    var cnt=dv("",comp.codes.length===0?"No codes":comp.codes.length+" codes · "+dc+" dims"); cnt.style.cssText="font-size:12px;color:"+(comp.codes.length>0?"#2e7d32":"#aaa")+";margin-top:2px";
+    ap(info,num,nm,cnt);
+    var xb=mk("button","xi"); xb.textContent="✕";
+    xb.onclick=(function(cid,cname){return function(){confirmDel('Delete "'+cname+'"?',function(){ss({master:S.master.filter(function(c){return c.id!==cid})})});}})(comp.id,comp.name);
+    ap(top,info,xb);
+    var mb=mk("button"); mb.textContent="MANAGE →"; mb.style.cssText="background:#e3f2fd;border:1px solid #90caf9;color:#1565c0;padding:10px;border-radius:8px;cursor:pointer;font-size:12px;font-weight:700;font-family:Arial,sans-serif;width:100%;min-height:40px;margin-top:10px";
+    mb.onclick=(function(c){return function(){ss({screen:"compDetail",comp:c});}})(comp);
+    ap(card,top,mb); grid.appendChild(card)
+  });
+  pg.appendChild(grid); return pg;
+}
+function showAddComp(){var name="";var c=dv("");c.appendChild(fg("Component Name *",ip("e.g. Piston Assembly","",function(v){name=v})));c.appendChild(bt("bp fw mt14","Add Component",function(){if(!name.trim())return;ss({master:S.master.concat([{id:gid(),name:name.trim(),codes:[]}])});closeModal()}));modal("Add Component",c);}
+
+function drawCompDetail(){
+  var comp=null;for(var i=0;i<S.master.length;i++){if(S.master[i].id===S.comp.id){comp=S.master[i];break;}}if(!comp)comp=S.comp;
+  var pg=dv("pg");var hdr=dv("ph");var hr=dv("phr");
+  var bk=mk("button");bk.textContent="←";bk.style.cssText="background:rgba(255,255,255,.2);border:none;color:#fff;border-radius:6px;padding:4px 8px;cursor:pointer;font-size:14px;font-family:Arial,sans-serif";bk.onclick=function(){ss({screen:"master"});};
+  var left=dv("fl ai gap8");ap(left,bk,dv("pt",comp.name));var info=dv("");ap(info,left,dv("ps","Part Codes"));
+  ap(hr,info,bt("bp sm","+ Add",function(){showCodeModal(comp)}));hdr.appendChild(hr);pg.appendChild(hdr);
+  if(!comp.codes.length){pg.appendChild(dv("empty","📂 No codes yet."));return pg;}
+  comp.codes.forEach(function(code,i){
+    var card=dv("card");var top=dv("fl jsb ai gap8");
+    var nb=mk("div");nb.style.cssText="width:32px;height:32px;background:#1565c0;color:#fff;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0";nb.textContent=String(i+1).padStart(2,"0");
+    var ci=dv("");var cn=dv("",code.codeNo);cn.style.cssText="font-weight:700;font-size:15px;color:#1565c0";ci.appendChild(cn);
+    if(code.description){var cd=dv("",code.description);cd.style.cssText="font-size:12px;color:#666;margin-top:2px";ci.appendChild(cd);}
+    var xb=mk("button","xi");xb.textContent="✕";
+    xb.onclick=(function(kid){return function(){confirmDel('Delete code?',function(){ss({master:S.master.map(function(c){return c.id!==comp.id?c:Object.assign({},c,{codes:c.codes.filter(function(k){return k.id!==kid})})})})});}})(code.id);
+    ap(top,ap(dv("fl ai gap8"),nb,ci),xb);
+    var br=dv("fl gap8");br.style.marginTop="10px";
+    var db=mk("button");db.textContent="⊞ Dimensions";db.style.cssText="flex:1;background:#1565c0;color:#fff;border:none;border-radius:8px;padding:11px;font-size:13px;font-weight:700;cursor:pointer;min-height:44px;font-family:Arial,sans-serif";
+    db.onclick=(function(c){return function(){ss({screen:"codeDetail",code:c});}})(code);
+    var eb=mk("button");eb.textContent="✎";eb.style.cssText="background:#e3f2fd;border:1px solid #90caf9;color:#1565c0;border-radius:8px;padding:11px 14px;font-size:13px;font-weight:700;cursor:pointer;min-height:44px;font-family:Arial,sans-serif";
+    eb.onclick=(function(c){return function(){showCodeModal(comp,c);}})(code);
+    ap(br,db,eb);ap(card,top,bdg(code.dimensions.length+" dim"+(code.dimensions.length!==1?"s":""),"#e3f2fd","#1565c0"),br);pg.appendChild(card)
+  });
+  return pg;
+}
+function showCodeModal(comp,ex){
+  var f={codeNo:ex?ex.codeNo:"",description:ex?ex.description:""};var c=dv("");
+  ap(c,fg("Code / Drawing / Part No *",ip("e.g. DRG-001",f.codeNo,function(v){f.codeNo=v})),fg("Description (optional)",ip("e.g. Front End Cap",f.description,function(v){f.description=v})));
+  c.appendChild(bt("bp fw mt14",ex?"Save Changes":"Add Code",function(){
+    if(!f.codeNo.trim())return;
+    if(ex){ss({master:S.master.map(function(c2){return c2.id!==comp.id?c2:Object.assign({},c2,{codes:c2.codes.map(function(k){return k.id!==ex.id?k:Object.assign({},k,{codeNo:f.codeNo,description:f.description})})})})});}
+    else{ss({master:S.master.map(function(c2){return c2.id!==comp.id?c2:Object.assign({},c2,{codes:c2.codes.concat([{id:gid(),codeNo:f.codeNo.trim(),description:f.description.trim(),dimensions:[]}])})})});}
+    closeModal()
+  }));
+  modal(ex?"Edit Code":"Add Code",c);
+}
+
+function drawCodeDetail(){
+  var comp=null;for(var i=0;i<S.master.length;i++){if(S.master[i].id===S.comp.id){comp=S.master[i];break;}}
+  var code=null;if(comp){for(var j=0;j<comp.codes.length;j++){if(comp.codes[j].id===S.code.id){code=comp.codes[j];break;}}}
+  if(!comp||!code)return dv("pg");
+  var pg=dv("pg");var hdr=dv("ph");var hr=dv("phr");
+  var bk=mk("button");bk.textContent="←";bk.style.cssText="background:rgba(255,255,255,.2);border:none;color:#fff;border-radius:6px;padding:4px 8px;cursor:pointer;font-size:14px;font-family:Arial,sans-serif";bk.onclick=function(){ss({screen:"compDetail"});};
+  var left=dv("fl ai gap8");ap(left,bk,dv("pt",code.codeNo));var info=dv("");ap(info,left,dv("ps",comp.name+(code.description?" · "+code.description:"")));
+  ap(hr,info,bt("bp sm","+ Add",function(){showDimModal(comp,code)}));hdr.appendChild(hr);pg.appendChild(hdr);
+  if(!code.dimensions.length){pg.appendChild(dv("empty","📐 No dimensions yet."));return pg;}
+  code.dimensions.forEach(function(dim){
+    var card=dv("card");var top=dv("fl jsb ai");var l2=dv("fl ai gap8");
+    var nm=mk("span");nm.textContent=dim.name;nm.style.cssText="font-weight:700;font-size:16px";
+    ap(l2,nm,bdg(dim.unit,"#e3f2fd","#1565c0"));
+    var xb=mk("button","xi");xb.textContent="✕";
+    xb.onclick=(function(did){return function(){confirmDel('Delete "'+dim.name+'"?',function(){ss({master:S.master.map(function(c){return c.id!==comp.id?c:Object.assign({},c,{codes:c.codes.map(function(k){return k.id!==code.id?k:Object.assign({},k,{dimensions:k.dimensions.filter(function(d){return d.id!==did})})})})})})});}})(dim.id);
+    ap(top,l2,xb);
+    var vals=dv("fl gap8");vals.style.cssText="margin-top:8px;flex-wrap:wrap";
+    ap(vals,ap(mk("span"),document.createTextNode("Std: "+(dim.standardValue||"—"))),ap(mk("span"),document.createTextNode("Tol: ±"+(dim.tolerance||"—"))));
+    var eb=mk("button");eb.textContent="✎ Edit";eb.style.cssText="background:#e3f2fd;border:1px solid #90caf9;color:#1565c0;border-radius:8px;padding:9px;font-size:13px;font-weight:700;cursor:pointer;margin-top:10px;width:100%;min-height:40px;font-family:Arial,sans-serif";
+    eb.onclick=(function(d){return function(){showDimModal(comp,code,d);}})(dim);
+    ap(card,top,vals,eb);pg.appendChild(card)
+  });
+  return pg;
+}
+function showDimModal(comp,code,ex){
+  var f={name:ex?ex.name:"",standardValue:ex?ex.standardValue:"",tolerance:ex?ex.tolerance:"",unit:ex?ex.unit:"mm"};
+  var c=dv("");
+  ap(c,fg("Dimension Name *",ip("e.g. OD, ID, Length",f.name,function(v){f.name=v})),fg("Standard Value",ip("e.g. 50.00",f.standardValue,function(v){f.standardValue=v})),fg("Tolerance (±)",ip("e.g. 0.05",f.tolerance,function(v){f.tolerance=v})));
+  var uw=dv("fg");var ul=mk("label");ul.textContent="Unit";var ur=dv("ubrow");
+  UNITS.forEach(function(u){
+    var b=dv("ub"+(f.unit===u?" on":""),u);
+    if(f.unit===u){b.style.borderColor="#1565c0";b.style.background="#e3f2fd";b.style.color="#1565c0";}
+    b.onclick=(function(unit,btn){return function(){f.unit=unit;ur.querySelectorAll(".ub").forEach(function(x){x.className="ub";x.style.cssText=""});btn.className="ub on";btn.style.borderColor="#1565c0";btn.style.background="#e3f2fd";btn.style.color="#1565c0";}})(u,b);
+    ur.appendChild(b)
+  });
+  ap(uw,ul,ur);c.appendChild(uw);
+  c.appendChild(bt("bp fw mt14",ex?"Save Changes":"Add Dimension",function(){
+    if(!f.name.trim())return;
+    if(ex){ss({master:S.master.map(function(c2){return c2.id!==comp.id?c2:Object.assign({},c2,{codes:c2.codes.map(function(k){return k.id!==code.id?k:Object.assign({},k,{dimensions:k.dimensions.map(function(d){return d.id!==ex.id?d:Object.assign({},f,{id:ex.id})})})})})})});}
+    else{ss({master:S.master.map(function(c2){return c2.id!==comp.id?c2:Object.assign({},c2,{codes:c2.codes.map(function(k){return k.id!==code.id?k:Object.assign({},k,{dimensions:k.dimensions.concat([Object.assign({},f,{id:gid()})])})})})})});}
+    closeModal()
+  }));
+  modal(ex?"Edit Dimension":"Add Dimension",c);
+}
+
+function drawUsers(){
+  var pg=dv("pg");var hdr=dv("ph");var hr=dv("phr");
+  var left=dv("");ap(left,dv("pt","👥 Users"),dv("ps","Accounts & Roles"));
+  ap(hr,left,bt("bp sm","+ Add",function(){showUserModal()}));hdr.appendChild(hr);pg.appendChild(hdr);
+  S.users.forEach(function(u){
+    var r=ROLES[u.role]||ROLES.inspector;var card=dv("card");var top=dv("fl jsb ai");
+    var av=dv("");av.style.cssText="width:40px;height:40px;border-radius:50%;background:"+r.bg+";display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0";av.textContent="👤";
+    var info=dv("");var nm=dv("",u.name);nm.style.fontWeight="700";ap(info,nm,bdg(r.label,r.bg,r.color));
+    var xb=mk("button","xi");xb.textContent="✕";
+    xb.onclick=(function(uid,uname){return function(){confirmDel('Delete "'+uname+'"?',function(){ss({users:S.users.filter(function(x){return x.id!==uid})})});}})(u.id,u.name);
+    ap(top,ap(dv("fl ai gap8"),av,info),xb);
+    var un=dv("","Username: "+u.username);un.style.cssText="font-size:13px;color:#888;margin-top:8px";
+    var eb=mk("button");eb.textContent="✎ Edit";eb.style.cssText="background:#e3f2fd;border:1px solid #90caf9;color:#1565c0;border-radius:8px;padding:9px;font-size:13px;font-weight:700;cursor:pointer;margin-top:10px;width:100%;min-height:40px;font-family:Arial,sans-serif";
+    eb.onclick=(function(user){return function(){showUserModal(user);}})(u);
+    ap(card,top,un,eb);pg.appendChild(card)
+  });
+  return pg;
+}
+function showUserModal(ex){
+  var f={name:ex?ex.name:"",username:ex?ex.username:"",password:ex?ex.password:"",role:ex?ex.role:"inspector"};
+  var c=dv("");
+  ap(c,fg("Full Name *",ip("e.g. John Smith",f.name,function(v){f.name=v})),fg("Username *",ip("e.g. jsmith",f.username,function(v){f.username=v})),fg("Password *",ip("Password",f.password,function(v){f.password=v})));
+  var rw=dv("fg");var rl=mk("label");rl.textContent="Role";var rr=dv("ubrow");
+  Object.keys(ROLES).forEach(function(key){
+    var r=ROLES[key];var b=dv("ub"+(f.role===key?" on":""),r.label);
+    if(f.role===key){b.style.borderColor=r.color;b.style.background=r.bg;b.style.color=r.color;}
+    b.onclick=(function(k,btn){return function(){f.role=k;rr.querySelectorAll(".ub").forEach(function(x){x.className="ub";x.style.cssText=""});var r2=ROLES[k];btn.className="ub on";btn.style.borderColor=r2.color;btn.style.background=r2.bg;btn.style.color=r2.color;}})(key,b);
+    rr.appendChild(b)
+  });
+  ap(rw,rl,rr);c.appendChild(rw);
+  c.appendChild(bt("bp fw mt14",ex?"Save Changes":"Add User",function(){
+    if(!f.name.trim()||!f.username.trim()||!f.password.trim())return;
+    if(ex){ss({users:S.users.map(function(u){return u.id!==ex.id?u:Object.assign({},u,f)})});}
+    else{ss({users:S.users.concat([Object.assign({},f,{id:gid()})])});}
+    closeModal()
+  }));
+  modal(ex?"Edit User":"Add User",c);
+}
+
+function drawReports(){
+  var pg=dv("pg");var hdr=dv("ph");
+  ap(hdr,ap(dv("phr"),ap(dv(""),dv("pt","📊 Reports"),dv("ps","Gagan Hydraulics"))));pg.appendChild(hdr);
+  var sc2={};STAGES.forEach(function(s){sc2[s]=0});S.orders.forEach(function(o){var s=o.stage||"Waiting";sc2[s]=(sc2[s]||0)+1});
+  var grid=mk("div");grid.style.cssText="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px";
+  STAGES.forEach(function(s){
+    var sc=SC[s];var cnt=sc2[s]||0;var card=mk("div");
+    card.style.cssText="background:#fff;border-radius:12px;padding:12px 14px;box-shadow:0 1px 4px rgba(0,0,0,.08);border-left:4px solid "+sc.color+";opacity:"+(cnt===0?".45":"1");
+    var tt=dv("",sc.icon+" "+s);tt.style.cssText="font-size:11px;font-weight:700;color:"+sc.color+";text-transform:uppercase;margin-bottom:4px";
+    var vv=dv("",String(cnt));vv.style.cssText="font-size:28px;font-weight:700;color:"+sc.color;
+    var ll=dv("","order"+(cnt!==1?"s":""));ll.style.cssText="font-size:11px;color:#aaa;margin-top:2px";
+    ap(card,tt,vv,ll);grid.appendChild(card)
+  });
+  var ov=dv("card");var ot=dv("","Stage Overview");ot.style.cssText="font-size:13px;font-weight:700;color:#1565c0;text-transform:uppercase;margin-bottom:10px";ap(ov,ot,grid);pg.appendChild(ov);
+  var ec=dv("card");var et=dv("","Export to PDF");et.style.cssText="font-size:13px;font-weight:700;color:#1565c0;text-transform:uppercase;margin-bottom:12px";ec.appendChild(et);
+  var ab=mk("button");ab.textContent="📄 Export Pending Orders";ab.style.cssText="width:100%;background:#1565c0;color:#fff;border:none;border-radius:10px;padding:14px;font-size:14px;font-weight:700;cursor:pointer;font-family:Arial,sans-serif;margin-bottom:10px;min-height:50px";
+  ab.onclick=function(){var w=S.orders.filter(function(o){return !o.stage||o.stage==="Waiting"});exportProdPDF(w.length?w:S.orders);};ec.appendChild(ab);
+  var stl=dv("","Export by Stage:");stl.style.cssText="font-size:13px;font-weight:700;color:#444;margin:12px 0 8px";ec.appendChild(stl);
+  STAGES.forEach(function(s){
+    var sc=SC[s];var cnt=sc2[s]||0;var b=mk("button");
+    b.style.cssText="width:100%;background:"+sc.bg+";color:"+sc.color+";border:1px solid "+sc.color+"40;border-radius:10px;padding:12px 14px;font-size:13px;font-weight:700;cursor:pointer;font-family:Arial,sans-serif;margin-bottom:8px;min-height:46px;display:flex;align-items:center;justify-content:space-between;opacity:"+(cnt===0?".4":"1");
+    var lb=mk("span");lb.textContent=sc.icon+" "+s;ap(b,lb,bdg(String(cnt)+" order"+(cnt!==1?"s":""),sc.bg,sc.color));
+    b.onclick=(function(stage){return function(){var fil=S.orders.filter(function(o){return(o.stage||"Waiting")===stage});if(!fil.length){alert("No orders in "+stage);return;}exportProdPDF(fil);}})(s);
+    ec.appendChild(b)
+  });
+  pg.appendChild(ec);return pg;
+}
+
+function pdfOverlay(title,html){
+  var ov=mk("div");ov.style.cssText="position:fixed;inset:0;z-index:9999;background:#fff;display:flex;flex-direction:column;overflow:hidden";
+  var tb=mk("div");tb.style.cssText="background:#1565c0;color:#fff;padding:14px 16px;display:flex;justify-content:space-between;align-items:center;flex-shrink:0";
+  var tt=mk("div");tt.style.cssText="font-weight:700;font-size:15px";tt.textContent=title;
+  var xb=mk("button");xb.textContent="✕ Close";xb.style.cssText="background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.4);color:#fff;padding:8px 16px;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;font-family:Arial,sans-serif;min-height:40px";xb.onclick=function(){ov.remove();};
+  ap(tb,tt,xb);
+  var ib=mk("div");ib.style.cssText="background:#e3f2fd;border-bottom:1px solid #90caf9;padding:10px 16px;font-size:12px;color:#1565c0;font-weight:600;flex-shrink:0";ib.textContent="📱 iPhone: Tap Share then Print to save as PDF";
+  var blob=new Blob([html],{type:"text/html"});
+  var fr=mk("iframe");fr.style.cssText="flex:1;border:none;width:100%;background:#fff";fr.src=URL.createObjectURL(blob);
+  var bb=mk("div");bb.style.cssText="background:#fff;border-top:1px solid #ddd;padding:12px 16px;display:flex;gap:10px;flex-shrink:0";
+  var pb=mk("button");pb.textContent="🖨 Print / Save PDF";pb.style.cssText="flex:1;background:#1565c0;color:#fff;border:none;padding:14px;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;font-family:Arial,sans-serif;min-height:50px";pb.onclick=function(){if(fr.contentWindow)fr.contentWindow.print();};
+  var xb2=mk("button");xb2.textContent="✕ Close";xb2.style.cssText="background:#f5f5f5;border:1px solid #ddd;color:#444;padding:14px 20px;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;font-family:Arial,sans-serif;min-height:50px";xb2.onclick=function(){ov.remove();};
+  ap(bb,pb,xb2);ap(ov,tb,ib,fr,bb);document.body.appendChild(ov);
+}
+
+function exportProdPDF(orders){
+  if(!orders||!orders.length){alert("No orders.");return;}
+  var rows="";
+  for(var i=0;i<orders.length;i++){
+    var o=orders[i];var sp=o.specs||{};var stg=o.stage||"Waiting";
+    rows+="<tr class='rt'><td class='num' rowspan='2'>"+(i+1)+"</td><td class='sn'>"+o.sn+"</td><td>"+o.cust+"</td><td>"+o.po+"</td><td>"+fd(o.delivery)+"</td><td>"+(sp.model||"—")+"</td><td>"+(sp.motor||"—")+"</td><td class='stg'>"+stg+"</td></tr>";
+    rows+="<tr class='rb'><td><b>Pump:</b> "+(sp.pump||"—")+"</td><td><b>Cylinder:</b> "+(sp.cyl||"—")+"</td><td><b>Tank:</b> "+(sp.tank||"—")+"</td><td colspan='5'><b>Accessories:</b> "+(sp.acc||"—")+"</td></tr>";
+  }
+  var today=new Date().toLocaleDateString("en-IN",{day:"2-digit",month:"short",year:"numeric"});
+  var css="*{box-sizing:border-box;margin:0;padding:0}body{font-family:Arial,sans-serif;font-size:11px;color:#222;padding:16px}.lh{display:flex;justify-content:space-between;align-items:flex-end;border-bottom:3px solid #1565c0;padding-bottom:10px;margin-bottom:8px}.co{font-size:20px;font-weight:700;color:#1565c0}.cs{font-size:11px;color:#555;margin-top:3px;font-weight:600}.note{background:#fff8e1;border:1px solid #ffcc80;padding:6px 12px;font-size:10px;color:#e65100;margin:0 0 12px;font-weight:600}table{width:100%;border-collapse:collapse}th{background:#1565c0;color:#fff;padding:8px;text-align:left;font-size:10px;text-transform:uppercase;white-space:nowrap}td{padding:6px 8px;vertical-align:middle}.rt td{border-top:2px solid #bbb;background:#fff}.rb td{border-bottom:2px solid #bbb;background:#f5f7ff;font-size:10px}.num{text-align:center;color:#aaa;font-weight:700;border-right:1px solid #ddd;background:#f0f4ff!important}.sn{font-weight:700;color:#1565c0;white-space:nowrap}.stg{font-weight:700;color:#2e7d32}.ft{margin-top:10px;border-top:1px solid #eee;padding-top:8px;font-size:9px;color:#bbb;display:flex;justify-content:space-between}@media print{@page{size:A4 landscape;margin:10mm}body{padding:0}th,.num{-webkit-print-color-adjust:exact;print-color-adjust:exact}}";
+  var html="<!DOCTYPE html><html><head><meta charset='utf-8'><style>"+css+"<\/style><\/head><body><div class='lh'><div><div class='co'>&#9881; GAGAN HYDRAULICS<\/div><div class='cs'>Production Order Sheet<\/div><\/div><div style='text-align:right;font-size:10px;color:#999'>"+today+" | "+orders.length+" orders<\/div><\/div><div class='note'>&#128203; Finalized orders pending production.<\/div><table><thead><tr><th>#<\/th><th>Serial No<\/th><th>Customer<\/th><th>PO No<\/th><th>Delivery<\/th><th>Model<\/th><th>Motor<\/th><th>Stage<\/th><\/tr><\/thead><tbody>"+rows+"<\/tbody><\/table><div class='ft'><span>Gagan Hydraulics<\/span><span>"+today+"<\/span><\/div><\/body><\/html>";
+  pdfOverlay("Production Order Sheet",html);
+}
+
+function exportInspPDF(order,master,insp){
+  var allKeys=[];master.forEach(function(c){c.codes.forEach(function(k){k.dimensions.forEach(function(d){allKeys.push(c.id+"__"+k.id+"__"+d.id)})})});
+  var total=allKeys.length,pass=0,fail=0;
+  allKeys.forEach(function(k){var r=insp[k];if(r){if(r.status==="Pass")pass++;else if(r.status==="Fail")fail++;}});
+  var sp=order.specs||{};var rows="";
+  master.forEach(function(comp){
+    if(!comp.codes.some(function(k){return k.dimensions.length}))return;
+    rows+="<tr style='background:#1565c0;color:#fff'><td colspan='8' style='padding:7px 10px;font-weight:700'>"+comp.name+"<\/td><\/tr>";
+    comp.codes.forEach(function(code){
+      if(!code.dimensions.length)return;
+      rows+="<tr style='background:#e3f2fd'><td colspan='8' style='padding:5px 10px;font-weight:700;color:#1565c0'>"+code.codeNo+(code.description?" — "+code.description:"")+"<\/td><\/tr>";
+      code.dimensions.forEach(function(dim){
+        var key=comp.id+"__"+code.id+"__"+dim.id;var row=insp[key]||{};
+        var bg=row.status==="Pass"?"#e8f5e9":row.status==="Fail"?"#ffebee":"#f5f5f5";
+        var tc=row.status==="Pass"?"#2e7d32":row.status==="Fail"?"#c62828":"#888";
+        rows+="<tr><td style='font-weight:700'>"+dim.name+"<\/td><td>"+(dim.standardValue||"—")+"<\/td><td>±"+(dim.tolerance||"—")+"<\/td><td>"+dim.unit+"<\/td><td>"+(row.actual||"—")+"<\/td><td style='background:"+bg+";color:"+tc+";font-weight:700'>"+(row.status||"Pending")+"<\/td><td>"+(row.inspector||"—")+"<\/td><td>"+(row.remarks||"—")+"<\/td><\/tr>"
+      })
+    })
+  });
+  var css="*{box-sizing:border-box;margin:0;padding:0}body{font-family:Arial,sans-serif;font-size:11px;padding:16px}.lh{border-bottom:3px solid #1565c0;padding-bottom:10px;margin-bottom:12px;display:flex;justify-content:space-between}.co{font-size:18px;font-weight:700;color:#1565c0}.mg{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:12px}.mf{background:#f5f5f5;padding:8px;border-radius:4px}.ml{font-size:9px;color:#888;font-weight:700;text-transform:uppercase;margin-bottom:2px}.sg{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px}.scc{background:#f5f5f5;padding:10px;text-align:center;border-radius:4px}.sn{font-size:20px;font-weight:700}table{width:100%;border-collapse:collapse;font-size:10px}th{background:#444;color:#fff;padding:5px 8px;text-align:left}td{padding:4px 8px;border-bottom:1px solid #eee}@media print{@page{size:A4;margin:10mm}body{padding:0}}";
+  var html="<!DOCTYPE html><html><head><meta charset='utf-8'><style>"+css+"<\/style><\/head><body><div class='lh'><div><div class='co'>&#9881; GAGAN HYDRAULICS<\/div><div style='font-size:12px;color:#555;margin-top:3px'>Inspection Report<\/div><\/div><div style='text-align:right;font-size:10px;color:#999'>"+new Date().toLocaleString("en-IN")+"<\/div><\/div><div class='mg'><div class='mf'><div class='ml'>Serial No<\/div>"+order.sn+"<\/div><div class='mf'><div class='ml'>PO No<\/div>"+order.po+"<\/div><div class='mf'><div class='ml'>Customer<\/div>"+order.cust+"<\/div><div class='mf'><div class='ml'>Delivery<\/div>"+fd(order.delivery)+"<\/div><\/div>"+(sp.model?"<div class='mg'><div class='mf'><div class='ml'>Model<\/div>"+sp.model+"<\/div><div class='mf'><div class='ml'>Motor<\/div>"+(sp.motor||"—")+"<\/div><div class='mf'><div class='ml'>Pump<\/div>"+(sp.pump||"—")+"<\/div><div class='mf'><div class='ml'>Cylinder<\/div>"+(sp.cyl||"—")+"<\/div><\/div>":"")+"<div class='sg'><div class='scc'><div class='sn'>"+total+"<\/div><div>Total<\/div><\/div><div class='scc'><div class='sn' style='color:#2e7d32'>"+pass+"<\/div><div>Pass<\/div><\/div><div class='scc'><div class='sn' style='color:#c62828'>"+fail+"<\/div><div>Fail<\/div><\/div><div class='scc'><div class='sn' style='color:#888'>"+(total-pass-fail)+"<\/div><div>Pending<\/div><\/div><\/div><table><thead><tr><th>Dimension<\/th><th>Standard<\/th><th>Tolerance<\/th><th>Unit<\/th><th>Actual<\/th><th>Status<\/th><th>Inspector<\/th><th>Remarks<\/th><\/tr><\/thead><tbody>"+rows+"<\/tbody><\/table><\/body><\/html>";
+  pdfOverlay("Inspection Report",html);
+}
+
+function draw(){
+  var scr=document.getElementById("scr");if(!scr)return;
+  scr.innerHTML="";closeModal();
+  var content;
+  try{
+    if(S.screen==="home")content=drawHome();
+    else if(S.screen==="order")content=drawOrder();
+    else if(S.screen==="master")content=drawMaster();
+    else if(S.screen==="compDetail")content=drawCompDetail();
+    else if(S.screen==="codeDetail")content=drawCodeDetail();
+    else if(S.screen==="users")content=drawUsers();
+    else if(S.screen==="reports")content=drawReports();
+    else content=drawHome();
+  }catch(e){content=dv("pg");var err=dv("card");err.style.color="#c62828";err.textContent="Error: "+e.message;content.appendChild(err);console.error(e);}
+  scr.appendChild(content);drawNav();
+}
+function loadAndDraw() {
+  // Show db status immediately as a permanent banner
+  var banner = document.createElement("div");
+  banner.id = "dbBanner";
+  banner.style.cssText = "position:fixed;top:0;left:0;right:0;padding:8px;text-align:center;font-size:13px;font-weight:700;z-index:99999;color:#fff;background:" + (db ? "#2e7d32" : "#c62828");
+  banner.textContent = db ? "Firebase: CONNECTED" : "Firebase: NOT CONNECTED (offline mode)";
+  document.body.appendChild(banner);
+  if (!db) { draw(); return; }
+  var screl = document.getElementById("scr");
+  if (screl) screl.innerHTML = "<div style='display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:16px'><div style='font-size:48px'>&#9881;</div><div style='font-size:20px;font-weight:700;color:#1565c0'>GAGAN HYDRAULICS</div><div style='font-size:13px;color:#888'>Syncing...</div></div>";
+
+  var loaded = false;
+
+  // Real-time listeners — fire immediately on load AND on every remote change
+  db.collection("gh").doc("orders").onSnapshot(function(doc) {
+    if (!doc.exists) { if (!loaded) { loaded=true; draw(); } return; }
+    var fresh = JSON.parse(doc.data().d);
+    var changed = JSON.stringify(fresh) !== JSON.stringify(S.orders);
+    S.orders = fresh; lsSet("gh_o", fresh);
+    if (loaded && changed) { showSyncStatus("RECEIVED UPDATE FROM CLOUD! Orders synced.", "#7b1fa2"); draw(); }
+    else if (!loaded) { loaded=true; draw(); }
+  }, function(e) { showSyncStatus("Sync error: "+e.code, "#f44336"); console.error("orders snap err", e); });
+
+  db.collection("gh").doc("master").onSnapshot(function(doc) {
+    if (!doc.exists) return;
+    var fresh = JSON.parse(doc.data().d);
+    S.master = fresh; lsSet("gh_m", fresh);
+    if (loaded) draw();
+  }, function(e) { console.warn("master snap err", e); });
+
+  db.collection("gh").doc("users").onSnapshot(function(doc) {
+    if (!doc.exists) return;
+    var fresh = JSON.parse(doc.data().d);
+    S.users = fresh; lsSet("gh_u", fresh);
+    if (loaded) draw();
+  }, function(e) { console.warn("users snap err", e); });
+
+  // Initial load — wait for all 3 then draw once
+  Promise.all([
+    db.collection("gh").doc("master").get(),
+    db.collection("gh").doc("orders").get(),
+    db.collection("gh").doc("users").get()
+  ]).then(function(docs) {
+    if (docs[0].exists) { S.master = JSON.parse(docs[0].data().d); lsSet("gh_m", S.master); }
+    if (docs[1].exists) { S.orders = JSON.parse(docs[1].data().d); lsSet("gh_o", S.orders); }
+    if (docs[2].exists) { S.users  = JSON.parse(docs[2].data().d); lsSet("gh_u", S.users); }
+    loaded = true;
+    draw();
+  }).catch(function(e) { console.warn("Firebase load failed, using local", e); loaded=true; draw(); });
+}
+loadAndDraw();
+</script>
+</body>
+</html>
