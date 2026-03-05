@@ -372,17 +372,7 @@ function drawInspect(order,insp,allKeys,pass,fail,filled,pct) {
   var psf=dv("","✗ "+fail); psf.style.cssText="color:#c62828;font-weight:600;font-size:13px";
   var psp=dv("","◌ "+(allKeys.length-filled)); psp.style.cssText="color:#888;font-size:13px";
   ap(pst,pss,psf,psp); ap(prog,prow,pb,pst);
-  if (!order.done){
-    var doneBtn=bt("bg fw mt","✅ Mark as Completed Order",function(){
-      confirmDel("Move order "+order.sn+" to Completed Orders?\n\nThis means the order has been fully delivered. This action cannot be undone.",function(){
-        var up=Object.assign({},order,{done:true,completedDate:new Date().toISOString()});
-        saveOrder(up);
-        ss({screen:"home",htab:"completed"});
-      });
-    });
-    doneBtn.style.background="#2e7d32";
-    prog.appendChild(doneBtn);
-  }
+  
   w.appendChild(prog);
   var active=S.master.filter(function(c){return c.codes.some(function(k){return k.dimensions.length>0})});
   if (!active.length){w.appendChild(dv("wb","⚠ No dimensions in Master Menu yet."));return w;}
@@ -486,7 +476,18 @@ function showStageModal(order) {
     var sub=dv("","Step "+(i+1)+" of "+STAGES.length); sub.style.cssText="font-size:12px;color:#aaa;margin-top:2px";
     ap(info,nm,sub); ap(r,ic,info);
     if (cur){var dot=mk("span");dot.style.cssText="margin-left:auto;color:"+sc.color+";font-weight:700;font-size:18px";dot.textContent="●";r.appendChild(dot);}
-    r.onclick=(function(stage){return function(){var up=Object.assign({},order,{stage:stage});saveOrder(up);closeModal();draw();}})(s);
+    r.onclick=(function(stage){return function(){
+      if(stage==="Delivered"){
+        closeModal();
+        confirmDel("Mark order "+order.sn+" as Delivered?\n\nThis will move the order to Completed Orders.",function(){
+          var up=Object.assign({},order,{stage:"Delivered",done:true,completedDate:new Date().toISOString()});
+          saveOrder(up);
+          ss({screen:"home",htab:"completed"});
+        });
+      } else {
+        var up=Object.assign({},order,{stage:stage});saveOrder(up);closeModal();draw();
+      }
+    }})(s);
     c.appendChild(r)
   });
   modal("📍 Process Stage",c);
