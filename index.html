@@ -152,20 +152,7 @@ try {
   console.log("Firebase OK, db=", db);
 } catch(e) { console.error("Firebase INIT FAILED:", e); }
 
-function showSyncStatus(msg, color) {
-  var el = document.getElementById("syncStatus");
-  if (!el) {
-    el = document.createElement("div");
-    el.id = "syncStatus";
-    el.style.cssText = "position:fixed;bottom:70px;left:8px;right:8px;background:"+color+";color:#fff;padding:10px 16px;border-radius:8px;font-size:14px;font-weight:700;z-index:9999;text-align:center";
-    document.body.appendChild(el);
-  }
-  el.style.background = color;
-  el.style.opacity = "1";
-  el.textContent = msg;
-  clearTimeout(el._t);
-  el._t = setTimeout(function(){el.style.opacity="0.4";}, 5000);
-}
+function showSyncStatus(msg, color) {}
 
 function syncUp(key, data) {
   lsSet("gh_" + key[0], data);
@@ -257,7 +244,7 @@ function drawHome() {
   pg.appendChild(sr);
   var tabs=dv("tabs");
   var rt=dv("tab"+(S.htab==="running"?" on":""),"🔧 Running ("+run.length+")");
-  var dt=dv("tab"+(S.htab==="completed"?" on":""),"✅ Done ("+done.length+")");
+  var dt=dv("tab"+(S.htab==="completed"?" on":""),"✅ Completed Orders ("+done.length+")");
   rt.onclick=function(){S.htab="running";draw();};
   dt.onclick=function(){S.htab="completed";draw();};
   ap(tabs,rt,dt); pg.appendChild(tabs);
@@ -270,7 +257,12 @@ function drawHome() {
       var card=dv("oc"+(order.done?" dn":""));
       card.onclick=(function(o){return function(){ss({screen:"order",ord:o,otab:"details"});}})(order);
       var top=dv("fl jsb ai");
-      ap(top,dv("osn",order.sn),order.done?bdg("✓ Done","#e8f5e9","#2e7d32"):bdg("Running","#e3f2fd","#1565c0"));
+      var topLeft=dv("fl ai gap8");
+      topLeft.appendChild(dv("osn",order.sn));
+      topLeft.appendChild(order.done?bdg("✓ Done","#e8f5e9","#2e7d32"):bdg("Running","#e3f2fd","#1565c0"));
+      var delBtn=mk("button"); delBtn.textContent="🗑"; delBtn.style.cssText="background:none;border:1px solid #ef9a9a;border-radius:6px;padding:2px 8px;cursor:pointer;font-size:14px;color:#c62828;flex-shrink:0";
+      (function(o){delBtn.onclick=function(e){e.stopPropagation();confirmDel("Delete order "+o.sn+"?",function(){ss({orders:S.orders.filter(function(x){return x.id!==o.id})});})};})(order);
+      ap(top,topLeft,delBtn);
       var dots=dv("fl ai"); dots.style.cssText="margin:8px 0 6px";
       STAGES.forEach(function(s,i){
         var sc2=SC[s]; var passed=STAGES.indexOf(stg)>=i; var cur=stg===s;
@@ -409,6 +401,7 @@ function drawInspect(order,insp,allKeys,pass,fail,filled,pct) {
       var cbar=dv("fl ai gap8"); cbar.style.cssText="padding:10px 14px;background:#f8f9ff;border-top:1px solid #eee;flex-wrap:wrap";
       var cnm=mk("span"); cnm.style.cssText="background:#1565c0;color:#fff;border-radius:6px;padding:3px 10px;font-size:12px;font-weight:700"; cnm.textContent=code.codeNo;
       ap(cbar,cnm,code.description?document.createTextNode(" "+code.description):"");
+      if(code.image){var imgWrap=dv("");imgWrap.style.cssText="margin:10px 0;text-align:center";var imgEl=mk("img");imgEl.src=code.image;imgEl.style.cssText="max-width:100%;max-height:220px;object-fit:contain;border-radius:8px;border:1px solid #e0e0e0;cursor:pointer";imgEl.title="Click to enlarge";imgEl.onclick=function(){var ov=dv("");ov.style.cssText="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.85);z-index:9999;display:flex;align-items:center;justify-content:center";var bi=mk("img");bi.src=code.image;bi.style.cssText="max-width:95%;max-height:90vh;object-fit:contain;border-radius:8px";ov.appendChild(bi);ov.onclick=function(){document.body.removeChild(ov)};document.body.appendChild(ov);};imgWrap.appendChild(imgEl);card.appendChild(imgWrap);}
       var tw=dv("ts"); var tbl=mk("table"); var thead=mk("thead"); var hr=mk("tr");
       ["Dimension","Standard","Tolerance","Unit","Actual","Status","Inspector","Remarks"].forEach(function(h){var th=mk("th");th.textContent=h;hr.appendChild(th)});
       thead.appendChild(hr); tbl.appendChild(thead); var tbody=mk("tbody");
@@ -543,13 +536,34 @@ function drawCompDetail(){
   return pg;
 }
 function showCodeModal(comp,ex){
-  var f={codeNo:ex?ex.codeNo:"",description:ex?ex.description:""};var c=dv("");
-  ap(c,fg("Code / Drawing / Part No *",ip("e.g. DRG-001",f.codeNo,function(v){f.codeNo=v})),fg("Description (optional)",ip("e.g. Front End Cap",f.description,function(v){f.description=v})));
+  var f={codeNo:ex?ex.codeNo:"",description:ex?ex.description:"",image:ex?ex.image:""};
+  var c=dv(""); var imgPrev=mk("div");
+  function updateImgPreview(){
+    imgPrev.innerHTML="";
+    if(f.image){var im=mk("img");im.src=f.image;im.style.cssText="width:100%;max-height:200px;object-fit:contain;border-radius:8px;border:1px solid #e0e0e0;margin-top:8px";imgPrev.appendChild(im);}
+  }
+  ap(c,
+    fg("Code / Drawing / Part No *",ip("e.g. DRG-001",f.codeNo,function(v){f.codeNo=v})),
+    fg("Description (optional)",ip("e.g. Front End Cap",f.description,function(v){f.description=v}))
+  );
+  var imgLbl=dv("fg"); imgLbl.style.marginTop="12px";
+  var imgTitle=mk("label"); imgTitle.textContent="Reference Drawing / Image"; imgTitle.style.cssText="font-size:13px;font-weight:600;color:#444;display:block;margin-bottom:6px";
+  var imgInp=mk("input"); imgInp.type="file"; imgInp.accept="image/*";
+  imgInp.style.cssText="width:100%;padding:6px;border:1px solid #ddd;border-radius:8px;font-size:13px;box-sizing:border-box";
+  imgInp.onchange=function(){
+    var file=imgInp.files[0]; if(!file)return;
+    var rd=new FileReader(); rd.onload=function(e){f.image=e.target.result;updateImgPreview();};rd.readAsDataURL(file);
+  };
+  if(ex&&ex.image){f.image=ex.image;updateImgPreview();}
+  var clrBtn=bt("","✕ Remove Image",function(){f.image="";imgPrev.innerHTML="";});
+  clrBtn.style.cssText="background:none;border:none;color:#c62828;font-size:12px;cursor:pointer;padding:4px 0;display:block";
+  ap(imgLbl,imgTitle,imgInp,imgPrev,clrBtn);
+  c.appendChild(imgLbl);
   c.appendChild(bt("bp fw mt14",ex?"Save Changes":"Add Code",function(){
     if(!f.codeNo.trim())return;
-    if(ex){ss({master:S.master.map(function(c2){return c2.id!==comp.id?c2:Object.assign({},c2,{codes:c2.codes.map(function(k){return k.id!==ex.id?k:Object.assign({},k,{codeNo:f.codeNo,description:f.description})})})})});}
-    else{ss({master:S.master.map(function(c2){return c2.id!==comp.id?c2:Object.assign({},c2,{codes:c2.codes.concat([{id:gid(),codeNo:f.codeNo.trim(),description:f.description.trim(),dimensions:[]}])})})});}
-    closeModal()
+    if(ex){ss({master:S.master.map(function(c2){return c2.id!==comp.id?c2:Object.assign({},c2,{codes:c2.codes.map(function(k){return k.id!==ex.id?k:Object.assign({},k,{codeNo:f.codeNo,description:f.description,image:f.image})})})})});}
+    else{ss({master:S.master.map(function(c2){return c2.id!==comp.id?c2:Object.assign({},c2,{codes:c2.codes.concat([{id:gid(),codeNo:f.codeNo,description:f.description,image:f.image,dimensions:[]}])})})});}
+    closeModal();
   }));
   modal(ex?"Edit Code":"Add Code",c);
 }
@@ -736,12 +750,6 @@ function draw(){
   scr.appendChild(content);drawNav();
 }
 function loadAndDraw() {
-  // Show db status immediately as a permanent banner
-  var banner = document.createElement("div");
-  banner.id = "dbBanner";
-  banner.style.cssText = "position:fixed;top:0;left:0;right:0;padding:8px;text-align:center;font-size:13px;font-weight:700;z-index:99999;color:#fff;background:" + (db ? "#2e7d32" : "#c62828");
-  banner.textContent = db ? "Firebase: CONNECTED" : "Firebase: NOT CONNECTED (offline mode)";
-  document.body.appendChild(banner);
   if (!db) { draw(); return; }
   var screl = document.getElementById("scr");
   if (screl) screl.innerHTML = "<div style='display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:16px'><div style='font-size:48px'>&#9881;</div><div style='font-size:20px;font-weight:700;color:#1565c0'>GAGAN HYDRAULICS</div><div style='font-size:13px;color:#888'>Syncing...</div></div>";
