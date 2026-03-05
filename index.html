@@ -372,7 +372,17 @@ function drawInspect(order,insp,allKeys,pass,fail,filled,pct) {
   var psf=dv("","✗ "+fail); psf.style.cssText="color:#c62828;font-weight:600;font-size:13px";
   var psp=dv("","◌ "+(allKeys.length-filled)); psp.style.cssText="color:#888;font-size:13px";
   ap(pst,pss,psf,psp); ap(prog,prow,pb,pst);
-  if (!order.done){prog.appendChild(bt("bg fw mt","✓ Mark Complete",function(){var up=Object.assign({},order,{done:true});saveOrder(up);draw()}));}
+  if (!order.done){
+    var doneBtn=bt("bg fw mt","✅ Mark as Completed Order",function(){
+      confirmDel("Move order "+order.sn+" to Completed Orders?\n\nThis means the order has been fully delivered. This action cannot be undone.",function(){
+        var up=Object.assign({},order,{done:true,completedDate:new Date().toISOString()});
+        saveOrder(up);
+        ss({screen:"home",htab:"completed"});
+      });
+    });
+    doneBtn.style.background="#2e7d32";
+    prog.appendChild(doneBtn);
+  }
   w.appendChild(prog);
   var active=S.master.filter(function(c){return c.codes.some(function(k){return k.dimensions.length>0})});
   if (!active.length){w.appendChild(dv("wb","⚠ No dimensions in Master Menu yet."));return w;}
