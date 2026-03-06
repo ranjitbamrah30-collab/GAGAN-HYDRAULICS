@@ -703,7 +703,7 @@ function drawReports(){
   var ov=dv("card");var ot=dv("","Stage Overview");ot.style.cssText="font-size:13px;font-weight:700;color:#1565c0;text-transform:uppercase;margin-bottom:10px";ap(ov,ot,grid);pg.appendChild(ov);
   var ec=dv("card");var et=dv("","Export to PDF");et.style.cssText="font-size:13px;font-weight:700;color:#1565c0;text-transform:uppercase;margin-bottom:12px";ec.appendChild(et);
   var ab=mk("button");ab.textContent="📄 Export Pending Orders";ab.style.cssText="width:100%;background:#1565c0;color:#fff;border:none;border-radius:10px;padding:14px;font-size:14px;font-weight:700;cursor:pointer;font-family:Arial,sans-serif;margin-bottom:10px;min-height:50px";
-  ab.onclick=function(){var w=S.orders.filter(function(o){return !o.stage||o.stage==="Waiting"});exportProdPDF(w.length?w:S.orders);};ec.appendChild(ab);
+  ab.onclick=function(){var w=S.orders.filter(function(o){return !o.done});exportProdPDF(w.length?w:S.orders);};ec.appendChild(ab);
   var stl=dv("","Export by Stage:");stl.style.cssText="font-size:13px;font-weight:700;color:#444;margin:12px 0 8px";ec.appendChild(stl);
   STAGES.forEach(function(s){
     var sc=SC[s];var cnt=sc2[s]||0;var b=mk("button");
@@ -732,7 +732,7 @@ function pdfOverlay(title,html){
 
 function exportProdPDF(orders){
   if(!orders||!orders.length){alert("No orders.");return;}
-  var ROWS_PER_PAGE=12;
+  var ROWS_PER_PAGE=8;
   var today=new Date().toLocaleDateString("en-IN",{day:"2-digit",month:"short",year:"numeric"});
   var theader="<thead><tr><th>#<\/th><th>Serial No<\/th><th>Customer<\/th><th>PO No<\/th><th>Delivery<\/th><th>Model<\/th><th>Motor<\/th><th>Stage<\/th><\/tr><\/thead>";
   var pages="";
@@ -752,7 +752,7 @@ function exportProdPDF(orders){
     pages+="<div class='ft'><span>Gagan Hydraulics — Internal Document<\/span><span>"+today+"<\/span><\/div>";
     pages+="<\/div>";
   }
-  var css="*{box-sizing:border-box;margin:0;padding:0}body{font-family:Arial,sans-serif;font-size:11px;color:#222}.pg{padding:14px 16px}.brk{page-break-after:always;break-after:page}.lh{display:flex;justify-content:space-between;align-items:flex-end;border-bottom:3px solid #1565c0;padding-bottom:10px;margin-bottom:8px}.co{font-size:20px;font-weight:700;color:#1565c0}.cs{font-size:11px;color:#555;margin-top:3px;font-weight:600}.note{background:#fff8e1;border:1px solid #ffcc80;padding:6px 12px;font-size:10px;color:#e65100;margin:0 0 12px;font-weight:600}table{width:100%;border-collapse:collapse}th{background:#1565c0;color:#fff;padding:8px;text-align:left;font-size:10px;text-transform:uppercase;white-space:nowrap}td{padding:6px 8px;vertical-align:middle}.rt td{border-top:2px solid #bbb;background:#fff}.rb td{border-bottom:2px solid #bbb;background:#f5f7ff;font-size:10px}.num{text-align:center;color:#aaa;font-weight:700;border-right:1px solid #ddd;background:#f0f4ff!important}.sn{font-weight:700;color:#1565c0;white-space:nowrap}.stg{font-weight:700;color:#2e7d32}.ft{margin-top:10px;border-top:1px solid #eee;padding-top:8px;font-size:9px;color:#bbb;display:flex;justify-content:space-between}@media print{@page{size:A4 landscape;margin:8mm}body{padding:0}th,.num{-webkit-print-color-adjust:exact;print-color-adjust:exact}}";
+  var css="*{box-sizing:border-box;margin:0;padding:0}body{font-family:Arial,sans-serif;font-size:13px;color:#222}.pg{padding:14px 16px}.brk{page-break-after:always;break-after:page}.lh{display:flex;justify-content:space-between;align-items:flex-end;border-bottom:3px solid #1565c0;padding-bottom:10px;margin-bottom:10px}.co{font-size:22px;font-weight:700;color:#1565c0}.cs{font-size:12px;color:#555;margin-top:3px;font-weight:600}.note{background:#fff8e1;border:1px solid #ffcc80;padding:8px 12px;font-size:11px;color:#e65100;margin:0 0 12px;font-weight:600}table{width:100%;border-collapse:collapse}th{background:#1565c0;color:#fff;padding:10px;text-align:left;font-size:11px;text-transform:uppercase;white-space:nowrap}td{padding:9px 10px;vertical-align:middle}.rt td{border-top:2px solid #bbb;background:#fff}.rb td{border-bottom:2px solid #bbb;background:#f5f7ff;font-size:12px}.num{text-align:center;color:#aaa;font-weight:700;border-right:1px solid #ddd;background:#f0f4ff!important}.sn{font-weight:700;color:#1565c0;white-space:nowrap}.stg{font-weight:700;color:#2e7d32}.ft{margin-top:12px;border-top:1px solid #eee;padding-top:8px;font-size:10px;color:#bbb;display:flex;justify-content:space-between}@media print{@page{size:A4 landscape;margin:8mm}body{padding:0}th,.num{-webkit-print-color-adjust:exact;print-color-adjust:exact}}";
   var content="<!DOCTYPE html><html><head><meta charset='utf-8'><style>"+css+"<\/style><\/head><body>"+pages+"<\/body><\/html>";
   pdfOverlay("Production Order Sheet",content);
 }
