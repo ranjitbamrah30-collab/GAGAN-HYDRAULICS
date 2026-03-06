@@ -732,11 +732,12 @@ function pdfOverlay(title,html){
 
 function exportProdPDF(orders){
   if(!orders||!orders.length){alert("No orders.");return;}
-  var ROWS_PER_PAGE=12;
+  var ROWS_PER_PAGE=10;
   var today=new Date().toLocaleDateString("en-IN",{day:"2-digit",month:"short",year:"numeric"});
   var theader="<thead><tr><th>#<\/th><th>Serial No<\/th><th>Customer<\/th><th>PO No<\/th><th>Delivery<\/th><th>Model<\/th><th>Motor<\/th><th>Stage<\/th><\/tr><\/thead>";
   var pages="";
-  for(var p=0;p*ROWS_PER_PAGE<orders.length;p++){
+  var totalPages=Math.ceil(orders.length/ROWS_PER_PAGE);
+  for(var p=0;p<totalPages;p++){
     var pageOrders=orders.slice(p*ROWS_PER_PAGE,(p+1)*ROWS_PER_PAGE);
     var rows="";
     for(var i=0;i<pageOrders.length;i++){
@@ -744,15 +745,15 @@ function exportProdPDF(orders){
       rows+="<tr class='rt'><td class='num' rowspan='2'>"+num+"<\/td><td class='sn'>"+o.sn+"<\/td><td>"+o.cust+"<\/td><td>"+o.po+"<\/td><td>"+fd(o.delivery)+"<\/td><td>"+(sp.model||"—")+"<\/td><td>"+(sp.motor||"—")+"<\/td><td class='stg'>"+stg+"<\/td><\/tr>";
       rows+="<tr class='rb'><td><b>Pump:<\/b> "+(sp.pump||"—")+"<\/td><td><b>Cylinder:<\/b> "+(sp.cyl||"—")+"<\/td><td><b>Tank:<\/b> "+(sp.tank||"—")+"<\/td><td colspan='5'><b>Accessories:<\/b> "+(sp.acc||"—")+"<\/td><\/tr>";
     }
-    var isLast=(p+1)*ROWS_PER_PAGE>=orders.length;
-    pages+="<div class='pg"+(isLast?"":" brk")+"'>";
-    pages+="<div class='lh'><div><div class='co'>&#9881; GAGAN HYDRAULICS<\/div><div class='cs'>Production Order Sheet — "+today+"<\/div><\/div><div style='text-align:right;font-size:10px;color:#666'>"+orders.length+" orders | Page "+(p+1)+" of "+Math.ceil(orders.length/ROWS_PER_PAGE)+"<\/div><\/div>";
+    var isLast=p===totalPages-1;
+    pages+="<div class='"+(isLast?"pg":"pg brk")+"'>";
+    pages+="<div class='lh'><div><div class='co'>&#9881; GAGAN HYDRAULICS<\/div><div class='cs'>Production Order Sheet — "+today+"<\/div><\/div><div class='pn'>"+orders.length+" orders | Page "+(p+1)+" of "+totalPages+"<\/div><\/div>";
     if(p===0){pages+="<div class='note'>&#128203; Finalized orders pending production.<\/div>";}
     pages+="<table>"+theader+"<tbody>"+rows+"<\/tbody><\/table>";
     pages+="<div class='ft'><span>Gagan Hydraulics — Internal Document<\/span><span>"+today+"<\/span><\/div>";
     pages+="<\/div>";
   }
-  var css="*{box-sizing:border-box;margin:0;padding:0}html,body{width:100%;height:auto}body{font-family:Arial,sans-serif;font-size:12px;color:#222}.pg{padding:6mm 8mm;width:100%}.brk{page-break-after:always;break-after:page;page-break-inside:avoid}.lh{display:flex;justify-content:space-between;align-items:flex-end;border-bottom:2px solid #1565c0;padding-bottom:6px;margin-bottom:6px}.co{font-size:18px;font-weight:700;color:#1565c0}.cs{font-size:12px;color:#555;margin-top:2px;font-weight:600}.note{background:#fff8e1;border:1px solid #ffcc80;padding:4px 10px;font-size:11px;color:#e65100;margin:0 0 6px;font-weight:600}table{width:100%;border-collapse:collapse;table-layout:fixed}th{background:#1565c0;color:#fff;padding:6px 7px;text-align:left;font-size:11px;text-transform:uppercase;white-space:nowrap}td{padding:5px 7px;vertical-align:middle;font-size:11px;word-wrap:break-word}.rt td{border-top:1px solid #ccc;background:#fff}.rb td{border-bottom:1px solid #ccc;background:#f5f7ff}.num{width:24px;text-align:center;color:#aaa;font-weight:700;border-right:1px solid #ddd;background:#f0f4ff!important}.sn{font-weight:700;color:#1565c0;white-space:nowrap}.stg{font-weight:700;color:#2e7d32;white-space:nowrap}.ft{margin-top:6px;border-top:1px solid #eee;padding-top:4px;font-size:10px;color:#bbb;display:flex;justify-content:space-between}@media print{@page{size:A4 landscape;margin:0}html,body{margin:0;padding:0}.pg{padding:5mm 6mm}.brk{page-break-after:always;break-after:page}th,.num{-webkit-print-color-adjust:exact;print-color-adjust:exact}}";
+  var css="*{box-sizing:border-box;margin:0;padding:0}html,body{margin:0;padding:0}body{font-family:Arial,sans-serif;font-size:13px;color:#222}.pg{padding:5mm 6mm;overflow:hidden}.brk{page-break-after:always;break-after:page}.lh{display:flex;justify-content:space-between;align-items:flex-end;border-bottom:2px solid #1565c0;padding-bottom:5px;margin-bottom:5px}.co{font-size:18px;font-weight:700;color:#1565c0}.cs{font-size:11px;color:#555;margin-top:2px;font-weight:600}.pn{font-size:11px;color:#666;text-align:right}.note{background:#fff8e1;border:1px solid #ffcc80;padding:4px 10px;font-size:11px;color:#e65100;margin:0 0 5px;font-weight:600}table{width:100%;border-collapse:collapse;table-layout:fixed}th{background:#1565c0;color:#fff;padding:6px 8px;text-align:left;font-size:12px;text-transform:uppercase;white-space:nowrap}td{padding:5px 8px;vertical-align:middle;font-size:12px;word-wrap:break-word}.rt td{border-top:1px solid #ccc;background:#fff}.rb td{border-bottom:1px solid #ccc;background:#f5f7ff}.num{width:26px;text-align:center;color:#aaa;font-weight:700;border-right:1px solid #ddd;background:#f0f4ff!important}.sn{font-weight:700;color:#1565c0;white-space:nowrap}.stg{font-weight:700;color:#2e7d32;white-space:nowrap}.ft{margin-top:5px;border-top:1px solid #eee;padding-top:4px;font-size:10px;color:#bbb;display:flex;justify-content:space-between}@media print{@page{size:A4 landscape;margin:0}html,body{margin:0;padding:0}.pg{padding:5mm 6mm}.brk{page-break-after:always;break-after:page}th,.num{-webkit-print-color-adjust:exact;print-color-adjust:exact}}";
   var content="<!DOCTYPE html><html><head><meta charset='utf-8'><style>"+css+"<\/style><\/head><body>"+pages+"<\/body><\/html>";
   pdfOverlay("Production Order Sheet",content);
 }
