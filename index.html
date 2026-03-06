@@ -732,7 +732,7 @@ function pdfOverlay(title,html){
 
 function exportProdPDF(orders){
   if(!orders||!orders.length){alert("No orders.");return;}
-  var ROWS_PER_PAGE=8;
+  var ROWS_PER_PAGE=12;
   var today=new Date().toLocaleDateString("en-IN",{day:"2-digit",month:"short",year:"numeric"});
   var theader="<thead><tr><th>#<\/th><th>Serial No<\/th><th>Customer<\/th><th>PO No<\/th><th>Delivery<\/th><th>Model<\/th><th>Motor<\/th><th>Stage<\/th><\/tr><\/thead>";
   var pages="";
@@ -746,13 +746,13 @@ function exportProdPDF(orders){
     }
     var isLast=(p+1)*ROWS_PER_PAGE>=orders.length;
     pages+="<div class='pg"+(isLast?"":" brk")+"'>";
-    pages+="<div class='lh'><div><div class='co'>&#9881; GAGAN HYDRAULICS<\/div><div class='cs'>Production Order Sheet<\/div><\/div><div style='text-align:right;font-size:10px;color:#999'>"+today+" | "+orders.length+" orders | Page "+(p+1)+"<\/div><\/div>";
+    pages+="<div class='lh'><div><div class='co'>&#9881; GAGAN HYDRAULICS<\/div><div class='cs'>Production Order Sheet — "+today+"<\/div><\/div><div style='text-align:right;font-size:10px;color:#666'>"+orders.length+" orders | Page "+(p+1)+" of "+Math.ceil(orders.length/ROWS_PER_PAGE)+"<\/div><\/div>";
     if(p===0){pages+="<div class='note'>&#128203; Finalized orders pending production.<\/div>";}
     pages+="<table>"+theader+"<tbody>"+rows+"<\/tbody><\/table>";
     pages+="<div class='ft'><span>Gagan Hydraulics — Internal Document<\/span><span>"+today+"<\/span><\/div>";
     pages+="<\/div>";
   }
-  var css="*{box-sizing:border-box;margin:0;padding:0}body{font-family:Arial,sans-serif;font-size:13px;color:#222}.pg{padding:14px 16px}.brk{page-break-after:always;break-after:page}.lh{display:flex;justify-content:space-between;align-items:flex-end;border-bottom:3px solid #1565c0;padding-bottom:10px;margin-bottom:10px}.co{font-size:22px;font-weight:700;color:#1565c0}.cs{font-size:12px;color:#555;margin-top:3px;font-weight:600}.note{background:#fff8e1;border:1px solid #ffcc80;padding:8px 12px;font-size:11px;color:#e65100;margin:0 0 12px;font-weight:600}table{width:100%;border-collapse:collapse}th{background:#1565c0;color:#fff;padding:10px;text-align:left;font-size:11px;text-transform:uppercase;white-space:nowrap}td{padding:9px 10px;vertical-align:middle}.rt td{border-top:2px solid #bbb;background:#fff}.rb td{border-bottom:2px solid #bbb;background:#f5f7ff;font-size:12px}.num{text-align:center;color:#aaa;font-weight:700;border-right:1px solid #ddd;background:#f0f4ff!important}.sn{font-weight:700;color:#1565c0;white-space:nowrap}.stg{font-weight:700;color:#2e7d32}.ft{margin-top:12px;border-top:1px solid #eee;padding-top:8px;font-size:10px;color:#bbb;display:flex;justify-content:space-between}@media print{@page{size:A4 landscape;margin:8mm}body{padding:0}th,.num{-webkit-print-color-adjust:exact;print-color-adjust:exact}}";
+  var css="*{box-sizing:border-box;margin:0;padding:0}html,body{width:100%;height:auto}body{font-family:Arial,sans-serif;font-size:10px;color:#222}.pg{padding:6mm 8mm;width:100%}.brk{page-break-after:always;break-after:page;page-break-inside:avoid}.lh{display:flex;justify-content:space-between;align-items:flex-end;border-bottom:2px solid #1565c0;padding-bottom:6px;margin-bottom:6px}.co{font-size:16px;font-weight:700;color:#1565c0}.cs{font-size:10px;color:#555;margin-top:2px;font-weight:600}.note{background:#fff8e1;border:1px solid #ffcc80;padding:4px 10px;font-size:9px;color:#e65100;margin:0 0 6px;font-weight:600}table{width:100%;border-collapse:collapse;table-layout:fixed}th{background:#1565c0;color:#fff;padding:5px 6px;text-align:left;font-size:9px;text-transform:uppercase;white-space:nowrap}td{padding:4px 6px;vertical-align:middle;font-size:9px;word-wrap:break-word}.rt td{border-top:1px solid #ccc;background:#fff}.rb td{border-bottom:1px solid #ccc;background:#f5f7ff}.num{width:24px;text-align:center;color:#aaa;font-weight:700;border-right:1px solid #ddd;background:#f0f4ff!important}.sn{font-weight:700;color:#1565c0;white-space:nowrap}.stg{font-weight:700;color:#2e7d32;white-space:nowrap}.ft{margin-top:6px;border-top:1px solid #eee;padding-top:4px;font-size:8px;color:#bbb;display:flex;justify-content:space-between}@media print{@page{size:A4 landscape;margin:0}html,body{margin:0;padding:0}.pg{padding:5mm 6mm}.brk{page-break-after:always;break-after:page}th,.num{-webkit-print-color-adjust:exact;print-color-adjust:exact}}";
   var content="<!DOCTYPE html><html><head><meta charset='utf-8'><style>"+css+"<\/style><\/head><body>"+pages+"<\/body><\/html>";
   pdfOverlay("Production Order Sheet",content);
 }
