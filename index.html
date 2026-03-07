@@ -601,11 +601,13 @@ function drawCodeDetail(){
         var img2=new Image();
         img2.onload=function(){
           var canvas=document.createElement("canvas");
-          var MAX=600; var w=img2.width; var h=img2.height;
+          var MAX=1600; var w=img2.width; var h=img2.height;
           if(w>h){if(w>MAX){h=Math.round(h*MAX/w);w=MAX;}}else{if(h>MAX){w=Math.round(w*MAX/h);h=MAX;}}
           canvas.width=w; canvas.height=h;
-          canvas.getContext("2d").drawImage(img2,0,0,w,h);
-          var compressed=canvas.toDataURL("image/jpeg",0.7);
+          var ctx2d=canvas.getContext("2d");ctx2d.imageSmoothingEnabled=true;ctx2d.imageSmoothingQuality="high";
+          ctx2d.drawImage(img2,0,0,w,h);
+          var compressed=canvas.toDataURL("image/png",1.0);
+          if(compressed.length>900000){compressed=canvas.toDataURL("image/jpeg",0.92);}
           var updated=Object.assign({},code,{image:compressed});
           ss({master:S.master.map(function(c2){return c2.id!==comp.id?c2:Object.assign({},c2,{codes:c2.codes.map(function(k){return k.id!==code.id?k:updated})})})});
         };
