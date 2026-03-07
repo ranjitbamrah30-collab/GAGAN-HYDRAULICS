@@ -593,25 +593,32 @@ function drawCodeDetail(){
   var imgHdr=dv("fl jsb ai"); imgHdr.style.marginBottom="8px";
   var imgTitle=dv("","📐 Reference Drawing"); imgTitle.style.cssText="font-weight:700;font-size:14px;color:#1565c0";
   var imgUpBtn=bt("bp sm","📷 "+(code.image?"Change":"Upload"),function(){
-    var inp=mk("input"); inp.type="file"; inp.accept="image/*";
+    var inp=mk("input"); inp.type="file"; inp.accept="image/*,application/pdf";
     inp.onchange=function(){
       var file=inp.files[0]; if(!file)return;
       var rd=new FileReader();
       rd.onload=function(e){
-        var img2=new Image();
-        img2.onload=function(){
-          var canvas=document.createElement("canvas");
-          var MAX=1600; var w=img2.width; var h=img2.height;
-          if(w>h){if(w>MAX){h=Math.round(h*MAX/w);w=MAX;}}else{if(h>MAX){w=Math.round(w*MAX/h);h=MAX;}}
-          canvas.width=w; canvas.height=h;
-          var ctx2d=canvas.getContext("2d");ctx2d.imageSmoothingEnabled=true;ctx2d.imageSmoothingQuality="high";
-          ctx2d.drawImage(img2,0,0,w,h);
-          var compressed=canvas.toDataURL("image/png",1.0);
-          if(compressed.length>900000){compressed=canvas.toDataURL("image/jpeg",0.92);}
-          var updated=Object.assign({},code,{image:compressed});
+        if(file.type==="application/pdf"){
+          // Store PDF as base64 directly
+          if(e.target.result.length>1400000){alert("PDF too large (max ~1MB). Please compress it first.");return;}
+          var updated=Object.assign({},code,{image:e.target.result,imageType:"pdf"});
           ss({master:S.master.map(function(c2){return c2.id!==comp.id?c2:Object.assign({},c2,{codes:c2.codes.map(function(k){return k.id!==code.id?k:updated})})})});
-        };
-        img2.src=e.target.result;
+        } else {
+          var img2=new Image();
+          img2.onload=function(){
+            var canvas=document.createElement("canvas");
+            var MAX=1600; var w=img2.width; var h=img2.height;
+            if(w>h){if(w>MAX){h=Math.round(h*MAX/w);w=MAX;}}else{if(h>MAX){w=Math.round(w*MAX/h);h=MAX;}}
+            canvas.width=w; canvas.height=h;
+            var ctx2d=canvas.getContext("2d");ctx2d.imageSmoothingEnabled=true;ctx2d.imageSmoothingQuality="high";
+            ctx2d.drawImage(img2,0,0,w,h);
+            var compressed=canvas.toDataURL("image/png",1.0);
+            if(compressed.length>900000){compressed=canvas.toDataURL("image/jpeg",0.92);}
+            var updated=Object.assign({},code,{image:compressed,imageType:"image"});
+            ss({master:S.master.map(function(c2){return c2.id!==comp.id?c2:Object.assign({},c2,{codes:c2.codes.map(function(k){return k.id!==code.id?k:updated})})})});
+          };
+          img2.src=e.target.result;
+        }
       };
       rd.readAsDataURL(file);
     };
@@ -620,16 +627,72 @@ function drawCodeDetail(){
   ap(imgHdr,imgTitle,imgUpBtn);
   imgCard.appendChild(imgHdr);
   if(code.image){
+    var isPdf=code.imageType==="pdf";
+    if(isPdf){
+      // PDF preview using iframe
+      var pdfWrap=dv(""); pdfWrap.style.cssText="position:relative;border-radius:8px;overflow:hidden;border:1px solid #e0e0e0;background:#f5f5f5";
+      var pdfFrame=mk("iframe"); pdfFrame.src=code.image+"#toolbar=0&navpanes=0&scrollbar=0&view=FitH";
+      pdfFrame.style.cssText="width:100%;height:320px;border:none;display:block;border-radius:8px";
+      var pdfBtn=mk("button"); pdfBtn.textContent="⛶ Full Screen"; pdfBtn.style.cssText="position:absolute;top:8px;right:8px;background:rgba(21,101,192,0.9);border:none;color:#fff;padding:5px 10px;border-radius:16px;font-size:12px;font-weight:700;cursor:pointer;font-family:Arial,sans-serif";
+      pdfBtn.onclick=function(){openPdfViewer(code.image);};
+      pdfWrap.appendChild(pdfFrame); pdfWrap.appendChild(pdfBtn);
+      imgCard.appendChild(pdfWrap);
+    } else {
     var imgEl=mk("img"); imgEl.src=code.image;
     imgEl.style.cssText="width:100%;max-height:260px;object-fit:contain;border-radius:8px;border:1px solid #e0e0e0;cursor:pointer;display:block";
-    imgEl.title="Tap to enlarge";
+    imgEl.title="Tap to zoom";
     imgEl.onclick=function(){
-      var ov=dv(""); ov.style.cssText="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.9);z-index:9999;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:16px";
-      var bi=mk("img"); bi.src=code.image; bi.style.cssText="max-width:95%;max-height:85vh;object-fit:contain;border-radius:8px";
-      var cl=bt("","✕ Close",function(){document.body.removeChild(ov);}); cl.style.cssText="background:rgba(255,255,255,0.2);border:none;color:#fff;padding:8px 24px;border-radius:20px;font-size:14px;cursor:pointer";
-      ap(ov,bi,cl); document.body.appendChild(ov);
+      var scale=1, posX=0, posY=0, dragging=false, startX=0, startY=0, lastX=0, lastY=0;
+      var ov=dv(""); ov.style.cssText="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.92);z-index:9999;display:flex;align-items:center;justify-content:center;flex-direction:column;overflow:hidden;touch-action:none";
+      // Top toolbar
+      var tb=dv(""); tb.style.cssText="position:absolute;top:0;left:0;right:0;display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:rgba(0,0,0,0.5);z-index:2";
+      var title=dv("","📐 Reference Drawing"); title.style.cssText="color:#fff;font-weight:700;font-size:14px";
+      var btns=dv(""); btns.style.cssText="display:flex;gap:8px";
+      function btnStyle(bg){return "background:"+bg+";border:none;color:#fff;padding:7px 14px;border-radius:20px;font-size:13px;font-weight:700;cursor:pointer;font-family:Arial,sans-serif";}
+      var zIn=mk("button"); zIn.textContent="＋ Zoom In"; zIn.style.cssText=btnStyle("rgba(255,255,255,0.2)");
+      var zOut=mk("button"); zOut.textContent="－ Zoom Out"; zOut.style.cssText=btnStyle("rgba(255,255,255,0.2)");
+      var zReset=mk("button"); zReset.textContent="⊡ Reset"; zReset.style.cssText=btnStyle("rgba(255,255,255,0.2)");
+      var cl=mk("button"); cl.textContent="✕"; cl.style.cssText=btnStyle("rgba(220,50,50,0.7)");
+      ap(btns,zIn,zOut,zReset,cl); ap(tb,title,btns);
+      // Zoom hint
+      var hint=dv("","Pinch or use buttons to zoom · Drag to pan"); hint.style.cssText="position:absolute;bottom:12px;left:50%;transform:translateX(-50%);color:rgba(255,255,255,0.45);font-size:11px;pointer-events:none;white-space:nowrap";
+      // Image wrapper for transform
+      var wrap=dv(""); wrap.style.cssText="position:relative;cursor:grab;user-select:none;touch-action:none";
+      var bi=mk("img"); bi.src=code.image; bi.style.cssText="max-width:92vw;max-height:82vh;object-fit:contain;border-radius:4px;display:block;pointer-events:none;user-select:none";
+      wrap.appendChild(bi);
+      function applyTransform(){wrap.style.transform="translate("+posX+"px,"+posY+"px) scale("+scale+")";}
+      // Buttons
+      zIn.onclick=function(e){e.stopPropagation();scale=Math.min(scale*1.4,8);applyTransform();};
+      zOut.onclick=function(e){e.stopPropagation();scale=Math.max(scale/1.4,0.5);if(scale<=1){posX=0;posY=0;}applyTransform();};
+      zReset.onclick=function(e){e.stopPropagation();scale=1;posX=0;posY=0;applyTransform();};
+      cl.onclick=function(){document.body.removeChild(ov);};
+      ov.onclick=function(e){if(e.target===ov){document.body.removeChild(ov);}};
+      // Mouse drag
+      wrap.onmousedown=function(e){if(scale<=1)return;dragging=true;startX=e.clientX-posX;startY=e.clientY-posY;wrap.style.cursor="grabbing";e.preventDefault();};
+      document.addEventListener("mousemove",function mm(e){if(!dragging)return;posX=e.clientX-startX;posY=e.clientY-startY;applyTransform();});
+      document.addEventListener("mouseup",function mu(){if(dragging){dragging=false;wrap.style.cursor="grab";}});
+      // Scroll wheel zoom
+      wrap.onwheel=function(e){e.preventDefault();var delta=e.deltaY<0?1.2:0.85;scale=Math.min(Math.max(scale*delta,0.5),8);if(scale<=1){posX=0;posY=0;}applyTransform();};
+      // Pinch zoom (touch)
+      var lastDist=0;
+      wrap.addEventListener("touchstart",function(e){
+        if(e.touches.length===2){lastDist=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);}
+        else if(e.touches.length===1){dragging=true;startX=e.touches[0].clientX-posX;startY=e.touches[0].clientY-posY;}
+        e.preventDefault();},{passive:false});
+      wrap.addEventListener("touchmove",function(e){
+        if(e.touches.length===2){
+          var dist=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);
+          if(lastDist>0){scale=Math.min(Math.max(scale*(dist/lastDist),0.5),8);}
+          lastDist=dist; if(scale<=1){posX=0;posY=0;} applyTransform();
+        } else if(e.touches.length===1&&dragging){
+          posX=e.touches[0].clientX-startX;posY=e.touches[0].clientY-startY;applyTransform();
+        }
+        e.preventDefault();},{passive:false});
+      wrap.addEventListener("touchend",function(){dragging=false;lastDist=0;});
+      ap(ov,tb,wrap,hint); document.body.appendChild(ov);
     };
     imgCard.appendChild(imgEl);
+    } // end else (not pdf)
     var remBtn=bt("","✕ Remove Image",function(){
       var updated=Object.assign({},code,{image:""});
       ss({master:S.master.map(function(c2){return c2.id!==comp.id?c2:Object.assign({},c2,{codes:c2.codes.map(function(k){return k.id!==code.id?k:updated})})})});
@@ -786,6 +849,22 @@ function pdfOverlay(title,html){
   var pb=mk("button");pb.textContent="🖨 Print / Save PDF";pb.style.cssText="flex:1;background:#1565c0;color:#fff;border:none;padding:14px;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;font-family:Arial,sans-serif;min-height:50px";pb.onclick=function(){if(fr.contentWindow)fr.contentWindow.print();};
   var xb2=mk("button");xb2.textContent="✕ Close";xb2.style.cssText="background:#f5f5f5;border:1px solid #ddd;color:#444;padding:14px 20px;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;font-family:Arial,sans-serif;min-height:50px";xb2.onclick=function(){ov.remove();};
   ap(bb,pb,xb2);ap(ov,tb,ib,fr,bb);document.body.appendChild(ov);
+}
+
+function openPdfViewer(src){
+  var ov=document.createElement("div");
+  ov.style.cssText="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.95);z-index:9999;display:flex;flex-direction:column";
+  var tb=document.createElement("div");
+  tb.style.cssText="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:rgba(0,0,0,0.6);flex-shrink:0";
+  var title=document.createElement("div");title.textContent="📐 Reference Drawing";title.style.cssText="color:#fff;font-weight:700;font-size:14px";
+  var cl=document.createElement("button");cl.textContent="✕ Close";cl.style.cssText="background:rgba(220,50,50,0.8);border:none;color:#fff;padding:7px 16px;border-radius:20px;font-size:13px;font-weight:700;cursor:pointer;font-family:Arial,sans-serif";
+  cl.onclick=function(){document.body.removeChild(ov);};
+  tb.appendChild(title);tb.appendChild(cl);
+  var frame=document.createElement("iframe");
+  frame.src=src+"#toolbar=1&navpanes=0&view=FitH";
+  frame.style.cssText="flex:1;border:none;background:#525659";
+  ov.appendChild(tb);ov.appendChild(frame);
+  document.body.appendChild(ov);
 }
 
 function exportProdPDF(orders){
