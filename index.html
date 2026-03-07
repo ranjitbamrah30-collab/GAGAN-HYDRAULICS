@@ -142,19 +142,27 @@ function lsGet(k,def) {
 function lsSet(k,v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch(e) {} }
 
 var db = null; var storage = null;
-try {
-  firebase.initializeApp({
-    apiKey: "AIzaSyAgb3ijuRgXnkATF9qvuBuwk0hmmNGblic",
-    authDomain: "gagan-9ad0a.firebaseapp.com",
-    projectId: "gagan-9ad0a",
-    storageBucket: "gagan-9ad0a.firebasestorage.app",
-    messagingSenderId: "436403153997",
-    appId: "1:436403153997:web:44cef936934b64e9e4c004"
-  });
-  db = firebase.firestore();
-  storage = firebase.storage();
-  console.log("Firebase OK, db=", db);
-} catch(e) { console.error("Firebase INIT FAILED:", e); }
+function initFirebase() {
+  try {
+    if (typeof firebase === "undefined") { 
+      console.warn("Firebase not loaded yet, retrying...");
+      setTimeout(initFirebase, 300); return; 
+    }
+    if (db) return; // already init
+    firebase.initializeApp({
+      apiKey: "AIzaSyAgb3ijuRgXnkATF9qvuBuwk0hmmNGblic",
+      authDomain: "gagan-9ad0a.firebaseapp.com",
+      projectId: "gagan-9ad0a",
+      storageBucket: "gagan-9ad0a.firebasestorage.app",
+      messagingSenderId: "436403153997",
+      appId: "1:436403153997:web:44cef936934b64e9e4c004"
+    });
+    db = firebase.firestore();
+    storage = firebase.storage();
+    console.log("Firebase OK, db=", db);
+    loadAndDraw();
+  } catch(e) { console.error("Firebase INIT FAILED:", e); loadAndDraw(); }
+}
 
 function showSyncStatus(msg, color) {}
 
@@ -1034,7 +1042,7 @@ function loadAndDraw() {
     draw();
   }).catch(function(e) { console.warn("Firebase load failed, using local", e); loaded=true; draw(); });
 }
-loadAndDraw();
+initFirebase();
 </script>
 </body>
 </html>
