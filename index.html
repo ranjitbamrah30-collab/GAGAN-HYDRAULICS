@@ -80,6 +80,7 @@ td input,td select{padding:6px 8px;font-size:12px;border-radius:6px;min-width:80
 </style>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-storage-compat.js"></script>
 </head>
 <body>
 <div id="scr"></div>
@@ -140,7 +141,7 @@ function lsGet(k,def) {
 }
 function lsSet(k,v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch(e) {} }
 
-var db = null;
+var db = null; var storage = null;
 try {
   firebase.initializeApp({
     apiKey: "AIzaSyAgb3ijuRgXnkATF9qvuBuwk0hmmNGblic",
@@ -151,6 +152,7 @@ try {
     appId: "1:436403153997:web:44cef936934b64e9e4c004"
   });
   db = firebase.firestore();
+  storage = firebase.storage();
   console.log("Firebase OK, db=", db);
 } catch(e) { console.error("Firebase INIT FAILED:", e); }
 
@@ -596,13 +598,30 @@ function drawCodeDetail(){
     var inp=mk("input"); inp.type="file"; inp.accept="image/*,application/pdf";
     inp.onchange=function(){
       var file=inp.files[0]; if(!file)return;
+      var isPdf=file.type==="application/pdf";
+      imgUpBtn.textContent="⏳ Uploading..."; imgUpBtn.disabled=true;
       var rd=new FileReader();
       rd.onload=function(e){
-        if(file.type==="application/pdf"){
-          // Store PDF as base64 directly
-          if(e.target.result.length>1400000){alert("PDF too large (max ~1MB). Please compress it first.");return;}
-          var updated=Object.assign({},code,{image:e.target.result,imageType:"pdf"});
-          ss({master:S.master.map(function(c2){return c2.id!==comp.id?c2:Object.assign({},c2,{codes:c2.codes.map(function(k){return k.id!==code.id?k:updated})})})});
+        var rawData=e.target.result;
+        function saveDrawing(data){
+          var drawKey=comp.id+"_"+code.id;
+          // Save drawing in its own Firestore doc under gh_drawings collection
+          if(db){
+            db.collection("gh").doc("drawings_"+drawKey).set({d:data,t:isPdf?"pdf":"image"})
+            .then(function(){
+              var updated=Object.assign({},code,{image:"__ref__"+drawKey,imageType:isPdf?"pdf":"image"});
+              ss({master:S.master.map(function(c2){return c2.id!==comp.id?c2:Object.assign({},c2,{codes:c2.codes.map(function(k){return k.id!==code.id?k:updated})})})});
+            })
+            .catch(function(err){imgUpBtn.textContent="📷 "+(code.image?"Change":"Upload");imgUpBtn.disabled=false;alert("Upload failed: "+err.message);});
+          } else {
+            // offline: store in localStorage only
+            lsSet("gh_drw_"+drawKey,{d:data,t:isPdf?"pdf":"image"});
+            var updated=Object.assign({},code,{image:"__ref__"+drawKey,imageType:isPdf?"pdf":"image"});
+            ss({master:S.master.map(function(c2){return c2.id!==comp.id?c2:Object.assign({},c2,{codes:c2.codes.map(function(k){return k.id!==code.id?k:updated})})})});
+          }
+        }
+        if(isPdf){
+          saveDrawing(rawData);
         } else {
           var img2=new Image();
           img2.onload=function(){
@@ -614,10 +633,9 @@ function drawCodeDetail(){
             ctx2d.drawImage(img2,0,0,w,h);
             var compressed=canvas.toDataURL("image/png",1.0);
             if(compressed.length>900000){compressed=canvas.toDataURL("image/jpeg",0.92);}
-            var updated=Object.assign({},code,{image:compressed,imageType:"image"});
-            ss({master:S.master.map(function(c2){return c2.id!==comp.id?c2:Object.assign({},c2,{codes:c2.codes.map(function(k){return k.id!==code.id?k:updated})})})});
+            saveDrawing(compressed);
           };
-          img2.src=e.target.result;
+          img2.src=rawData;
         }
       };
       rd.readAsDataURL(file);
@@ -628,82 +646,79 @@ function drawCodeDetail(){
   imgCard.appendChild(imgHdr);
   if(code.image){
     var isPdf=code.imageType==="pdf";
-    if(isPdf){
-      // PDF preview using iframe
-      var pdfWrap=dv(""); pdfWrap.style.cssText="position:relative;border-radius:8px;overflow:hidden;border:1px solid #e0e0e0;background:#f5f5f5";
-      var pdfFrame=mk("iframe"); pdfFrame.src=code.image+"#toolbar=0&navpanes=0&scrollbar=0&view=FitH";
-      pdfFrame.style.cssText="width:100%;height:320px;border:none;display:block;border-radius:8px";
-      var pdfBtn=mk("button"); pdfBtn.textContent="⛶ Full Screen"; pdfBtn.style.cssText="position:absolute;top:8px;right:8px;background:rgba(21,101,192,0.9);border:none;color:#fff;padding:5px 10px;border-radius:16px;font-size:12px;font-weight:700;cursor:pointer;font-family:Arial,sans-serif";
-      pdfBtn.onclick=function(){openPdfViewer(code.image);};
-      pdfWrap.appendChild(pdfFrame); pdfWrap.appendChild(pdfBtn);
-      imgCard.appendChild(pdfWrap);
+    function renderDrawing(imgSrc, isPdfType){
+      // Clear existing content (in case called after async fetch)
+      while(imgCard.children.length > 1) imgCard.removeChild(imgCard.lastChild);
+      if(isPdfType){
+        var pdfWrap=dv(""); pdfWrap.style.cssText="position:relative;border-radius:8px;overflow:hidden;border:1px solid #e0e0e0;background:#f5f5f5";
+        var pdfFrame=mk("iframe"); pdfFrame.src=imgSrc+"#toolbar=0&navpanes=0&scrollbar=0&view=FitH";
+        pdfFrame.style.cssText="width:100%;height:320px;border:none;display:block;border-radius:8px";
+        var pdfBtn=mk("button"); pdfBtn.textContent="⛶ Full Screen"; pdfBtn.style.cssText="position:absolute;top:8px;right:8px;background:rgba(21,101,192,0.9);border:none;color:#fff;padding:5px 10px;border-radius:16px;font-size:12px;font-weight:700;cursor:pointer;font-family:Arial,sans-serif";
+        pdfBtn.onclick=function(){openPdfViewer(imgSrc);};
+        pdfWrap.appendChild(pdfFrame); pdfWrap.appendChild(pdfBtn);
+        imgCard.appendChild(pdfWrap);
+      } else {
+        var imgEl=mk("img"); imgEl.src=imgSrc;
+        imgEl.style.cssText="width:100%;max-height:260px;object-fit:contain;border-radius:8px;border:1px solid #e0e0e0;cursor:pointer;display:block";
+        imgEl.title="Tap to zoom";
+        imgEl.onclick=function(){
+          var scale=1, posX=0, posY=0, dragging=false, startX=0, startY=0;
+          var ov=dv(""); ov.style.cssText="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.92);z-index:9999;display:flex;align-items:center;justify-content:center;flex-direction:column;overflow:hidden;touch-action:none";
+          var tb=dv(""); tb.style.cssText="position:absolute;top:0;left:0;right:0;display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:rgba(0,0,0,0.5);z-index:2";
+          var titleEl=dv("","📐 Reference Drawing"); titleEl.style.cssText="color:#fff;font-weight:700;font-size:14px";
+          var btns=dv(""); btns.style.cssText="display:flex;gap:8px";
+          function btnStyle(bg){return "background:"+bg+";border:none;color:#fff;padding:7px 14px;border-radius:20px;font-size:13px;font-weight:700;cursor:pointer;font-family:Arial,sans-serif";}
+          var zIn=mk("button"); zIn.textContent="＋"; zIn.style.cssText=btnStyle("rgba(255,255,255,0.2)");
+          var zOut=mk("button"); zOut.textContent="－"; zOut.style.cssText=btnStyle("rgba(255,255,255,0.2)");
+          var zReset=mk("button"); zReset.textContent="⊡"; zReset.style.cssText=btnStyle("rgba(255,255,255,0.2)");
+          var cl=mk("button"); cl.textContent="✕"; cl.style.cssText=btnStyle("rgba(220,50,50,0.7)");
+          ap(btns,zIn,zOut,zReset,cl); ap(tb,titleEl,btns);
+          var hint=dv("","Pinch or scroll to zoom · Drag to pan"); hint.style.cssText="position:absolute;bottom:12px;left:50%;transform:translateX(-50%);color:rgba(255,255,255,0.4);font-size:11px;pointer-events:none;white-space:nowrap";
+          var wrap=dv(""); wrap.style.cssText="position:relative;cursor:grab;user-select:none;touch-action:none";
+          var bi=mk("img"); bi.src=imgSrc; bi.style.cssText="max-width:92vw;max-height:82vh;object-fit:contain;border-radius:4px;display:block;pointer-events:none;user-select:none";
+          wrap.appendChild(bi);
+          function applyTransform(){wrap.style.transform="translate("+posX+"px,"+posY+"px) scale("+scale+")";}
+          zIn.onclick=function(e){e.stopPropagation();scale=Math.min(scale*1.4,8);applyTransform();};
+          zOut.onclick=function(e){e.stopPropagation();scale=Math.max(scale/1.4,0.5);if(scale<=1){posX=0;posY=0;}applyTransform();};
+          zReset.onclick=function(e){e.stopPropagation();scale=1;posX=0;posY=0;applyTransform();};
+          cl.onclick=function(){document.body.removeChild(ov);};
+          ov.onclick=function(e){if(e.target===ov){document.body.removeChild(ov);}};
+          wrap.onmousedown=function(e){if(scale<=1)return;dragging=true;startX=e.clientX-posX;startY=e.clientY-posY;wrap.style.cursor="grabbing";e.preventDefault();};
+          document.addEventListener("mousemove",function(e){if(!dragging)return;posX=e.clientX-startX;posY=e.clientY-startY;applyTransform();});
+          document.addEventListener("mouseup",function(){if(dragging){dragging=false;wrap.style.cursor="grab";}});
+          wrap.onwheel=function(e){e.preventDefault();var delta=e.deltaY<0?1.2:0.85;scale=Math.min(Math.max(scale*delta,0.5),8);if(scale<=1){posX=0;posY=0;}applyTransform();};
+          var lastDist=0;
+          wrap.addEventListener("touchstart",function(e){if(e.touches.length===2){lastDist=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);}else if(e.touches.length===1){dragging=true;startX=e.touches[0].clientX-posX;startY=e.touches[0].clientY-posY;}e.preventDefault();},{passive:false});
+          wrap.addEventListener("touchmove",function(e){if(e.touches.length===2){var dist=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);if(lastDist>0){scale=Math.min(Math.max(scale*(dist/lastDist),0.5),8);}lastDist=dist;if(scale<=1){posX=0;posY=0;}applyTransform();}else if(e.touches.length===1&&dragging){posX=e.touches[0].clientX-startX;posY=e.touches[0].clientY-startY;applyTransform();}e.preventDefault();},{passive:false});
+          wrap.addEventListener("touchend",function(){dragging=false;lastDist=0;});
+          ap(ov,tb,wrap,hint); document.body.appendChild(ov);
+        };
+        imgCard.appendChild(imgEl);
+      }
+      // Remove button
+      var remBtn=mk("button"); remBtn.textContent="🗑 Remove Drawing"; remBtn.style.cssText="background:none;border:none;color:#c62828;font-size:12px;cursor:pointer;padding:4px 0;display:block;margin-top:6px";
+      remBtn.onclick=function(){if(confirm("Remove this drawing?")){var updated=Object.assign({},code,{image:null,imageType:null});ss({master:S.master.map(function(c2){return c2.id!==comp.id?c2:Object.assign({},c2,{codes:c2.codes.map(function(k){return k.id!==code.id?k:updated})})})});}};
+      imgCard.appendChild(remBtn);
+    }
+    // Resolve __ref__ drawing keys
+    if(code.image.indexOf("__ref__")===0){
+      var drawKey=code.image.replace("__ref__","");
+      var cached=lsGet("gh_drw_"+drawKey);
+      if(cached&&cached.d){
+        renderDrawing(cached.d, cached.t==="pdf");
+      } else {
+        var loadingEl=dv("","⏳ Loading drawing..."); loadingEl.style.cssText="color:#888;font-size:13px;text-align:center;padding:20px 0";
+        imgCard.appendChild(loadingEl);
+        if(db){db.collection("gh").doc("drawings_"+drawKey).get().then(function(doc){if(doc.exists){var dat=doc.data();lsSet("gh_drw_"+drawKey,{d:dat.d,t:dat.t});renderDrawing(dat.d,dat.t==="pdf");}});}
+      }
     } else {
-    var imgEl=mk("img"); imgEl.src=code.image;
-    imgEl.style.cssText="width:100%;max-height:260px;object-fit:contain;border-radius:8px;border:1px solid #e0e0e0;cursor:pointer;display:block";
-    imgEl.title="Tap to zoom";
-    imgEl.onclick=function(){
-      var scale=1, posX=0, posY=0, dragging=false, startX=0, startY=0, lastX=0, lastY=0;
-      var ov=dv(""); ov.style.cssText="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.92);z-index:9999;display:flex;align-items:center;justify-content:center;flex-direction:column;overflow:hidden;touch-action:none";
-      // Top toolbar
-      var tb=dv(""); tb.style.cssText="position:absolute;top:0;left:0;right:0;display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:rgba(0,0,0,0.5);z-index:2";
-      var title=dv("","📐 Reference Drawing"); title.style.cssText="color:#fff;font-weight:700;font-size:14px";
-      var btns=dv(""); btns.style.cssText="display:flex;gap:8px";
-      function btnStyle(bg){return "background:"+bg+";border:none;color:#fff;padding:7px 14px;border-radius:20px;font-size:13px;font-weight:700;cursor:pointer;font-family:Arial,sans-serif";}
-      var zIn=mk("button"); zIn.textContent="＋ Zoom In"; zIn.style.cssText=btnStyle("rgba(255,255,255,0.2)");
-      var zOut=mk("button"); zOut.textContent="－ Zoom Out"; zOut.style.cssText=btnStyle("rgba(255,255,255,0.2)");
-      var zReset=mk("button"); zReset.textContent="⊡ Reset"; zReset.style.cssText=btnStyle("rgba(255,255,255,0.2)");
-      var cl=mk("button"); cl.textContent="✕"; cl.style.cssText=btnStyle("rgba(220,50,50,0.7)");
-      ap(btns,zIn,zOut,zReset,cl); ap(tb,title,btns);
-      // Zoom hint
-      var hint=dv("","Pinch or use buttons to zoom · Drag to pan"); hint.style.cssText="position:absolute;bottom:12px;left:50%;transform:translateX(-50%);color:rgba(255,255,255,0.45);font-size:11px;pointer-events:none;white-space:nowrap";
-      // Image wrapper for transform
-      var wrap=dv(""); wrap.style.cssText="position:relative;cursor:grab;user-select:none;touch-action:none";
-      var bi=mk("img"); bi.src=code.image; bi.style.cssText="max-width:92vw;max-height:82vh;object-fit:contain;border-radius:4px;display:block;pointer-events:none;user-select:none";
-      wrap.appendChild(bi);
-      function applyTransform(){wrap.style.transform="translate("+posX+"px,"+posY+"px) scale("+scale+")";}
-      // Buttons
-      zIn.onclick=function(e){e.stopPropagation();scale=Math.min(scale*1.4,8);applyTransform();};
-      zOut.onclick=function(e){e.stopPropagation();scale=Math.max(scale/1.4,0.5);if(scale<=1){posX=0;posY=0;}applyTransform();};
-      zReset.onclick=function(e){e.stopPropagation();scale=1;posX=0;posY=0;applyTransform();};
-      cl.onclick=function(){document.body.removeChild(ov);};
-      ov.onclick=function(e){if(e.target===ov){document.body.removeChild(ov);}};
-      // Mouse drag
-      wrap.onmousedown=function(e){if(scale<=1)return;dragging=true;startX=e.clientX-posX;startY=e.clientY-posY;wrap.style.cursor="grabbing";e.preventDefault();};
-      document.addEventListener("mousemove",function mm(e){if(!dragging)return;posX=e.clientX-startX;posY=e.clientY-startY;applyTransform();});
-      document.addEventListener("mouseup",function mu(){if(dragging){dragging=false;wrap.style.cursor="grab";}});
-      // Scroll wheel zoom
-      wrap.onwheel=function(e){e.preventDefault();var delta=e.deltaY<0?1.2:0.85;scale=Math.min(Math.max(scale*delta,0.5),8);if(scale<=1){posX=0;posY=0;}applyTransform();};
-      // Pinch zoom (touch)
-      var lastDist=0;
-      wrap.addEventListener("touchstart",function(e){
-        if(e.touches.length===2){lastDist=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);}
-        else if(e.touches.length===1){dragging=true;startX=e.touches[0].clientX-posX;startY=e.touches[0].clientY-posY;}
-        e.preventDefault();},{passive:false});
-      wrap.addEventListener("touchmove",function(e){
-        if(e.touches.length===2){
-          var dist=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);
-          if(lastDist>0){scale=Math.min(Math.max(scale*(dist/lastDist),0.5),8);}
-          lastDist=dist; if(scale<=1){posX=0;posY=0;} applyTransform();
-        } else if(e.touches.length===1&&dragging){
-          posX=e.touches[0].clientX-startX;posY=e.touches[0].clientY-startY;applyTransform();
-        }
-        e.preventDefault();},{passive:false});
-      wrap.addEventListener("touchend",function(){dragging=false;lastDist=0;});
-      ap(ov,tb,wrap,hint); document.body.appendChild(ov);
-    };
-    imgCard.appendChild(imgEl);
-    } // end else (not pdf)
-    var remBtn=bt("","✕ Remove Image",function(){
-      var updated=Object.assign({},code,{image:""});
-      ss({master:S.master.map(function(c2){return c2.id!==comp.id?c2:Object.assign({},c2,{codes:c2.codes.map(function(k){return k.id!==code.id?k:updated})})})});
-    });
-    remBtn.style.cssText="background:none;border:none;color:#c62828;font-size:12px;cursor:pointer;padding:4px 0;display:block;margin-top:6px";
-    imgCard.appendChild(remBtn);
+      renderDrawing(code.image, isPdf);
+    }
   } else {
     var noImg=dv("","No drawing uploaded yet"); noImg.style.cssText="color:#aaa;font-size:13px;text-align:center;padding:20px 0";
     imgCard.appendChild(noImg);
   }
-  pg.appendChild(imgCard);
+    pg.appendChild(imgCard);
   if(!code.dimensions.length){pg.appendChild(dv("empty","📐 No dimensions yet."));return pg;}
   code.dimensions.forEach(function(dim){
     var card=dv("card");var top=dv("fl jsb ai");var l2=dv("fl ai gap8");
@@ -965,6 +980,27 @@ function loadAndDraw() {
     S.users = fresh; lsSet("gh_u", fresh);
     if (loaded) draw();
   }, function(e) { console.warn("users snap err", e); });
+
+  // Listen for ALL docs in gh collection — catches drawing_xxx docs from other devices
+  db.collection("gh").onSnapshot(function(snapshot) {
+    snapshot.docChanges().forEach(function(change) {
+      var docId = change.doc.id;
+      if(docId.indexOf("drawings_") === 0) {
+        var drawKey = docId.replace("drawings_","");
+        if(change.type === "removed") {
+          lsSet("gh_drw_"+drawKey, null);
+        } else {
+          var dat = change.doc.data();
+          lsSet("gh_drw_"+drawKey, {d: dat.d, t: dat.t});
+          // If currently viewing this code detail, redraw to show the image
+          if(loaded && S.screen === "codeDetail" && S.code && S.comp) {
+            var expectedKey = S.comp.id + "_" + S.code.id;
+            if(drawKey === expectedKey) draw();
+          }
+        }
+      }
+    });
+  }, function(e) { console.warn("drawings snap err", e); });
 
   // Initial load — wait for all 3 then draw once
   Promise.all([
