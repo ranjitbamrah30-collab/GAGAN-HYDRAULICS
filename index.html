@@ -501,8 +501,9 @@ function showStageModal(order) {
         closeModal();
         confirmDel("Mark order "+order.sn+" as Delivered?\n\nThis will move the order to Completed Orders.",function(){
           var up=Object.assign({},order,{stage:"Delivered",done:true,completedDate:new Date().toISOString()});
-          saveOrder(up);
-          ss({screen:"home",htab:"completed"});
+          var newOrders=S.orders.map(function(o){return o.id===up.id?up:o});
+          S.ord=up;
+          ss({orders:newOrders,screen:"home",htab:"completed"});
         });
       } else {
         var up=Object.assign({},order,{stage:stage});saveOrder(up);closeModal();draw();
