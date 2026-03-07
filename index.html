@@ -707,9 +707,29 @@ function drawCodeDetail(){
       if(cached&&cached.d){
         renderDrawing(cached.d, cached.t==="pdf");
       } else {
+        // Show loading, then always fetch fresh from Firestore
         var loadingEl=dv("","⏳ Loading drawing..."); loadingEl.style.cssText="color:#888;font-size:13px;text-align:center;padding:20px 0";
         imgCard.appendChild(loadingEl);
-        if(db){db.collection("gh").doc("drawings_"+drawKey).get().then(function(doc){if(doc.exists){var dat=doc.data();lsSet("gh_drw_"+drawKey,{d:dat.d,t:dat.t});renderDrawing(dat.d,dat.t==="pdf");}});}
+        if(db){
+          db.collection("gh").doc("drawings_"+drawKey).get().then(function(doc){
+            // Remove loading indicator
+            if(loadingEl.parentNode) loadingEl.parentNode.removeChild(loadingEl);
+            if(doc.exists){
+              var dat=doc.data();
+              lsSet("gh_drw_"+drawKey,{d:dat.d,t:dat.t});
+              renderDrawing(dat.d, dat.t==="pdf");
+            } else {
+              var errEl=dv("","⚠ Drawing not found on server");
+              errEl.style.cssText="color:#c62828;font-size:13px;text-align:center;padding:20px 0";
+              imgCard.appendChild(errEl);
+            }
+          }).catch(function(e){
+            if(loadingEl.parentNode) loadingEl.parentNode.removeChild(loadingEl);
+            var errEl=dv("","⚠ Failed to load: "+e.message);
+            errEl.style.cssText="color:#c62828;font-size:13px;text-align:center;padding:20px 0";
+            imgCard.appendChild(errEl);
+          });
+        }
       }
     } else {
       renderDrawing(code.image, isPdf);
@@ -993,9 +1013,8 @@ function loadAndDraw() {
           var dat = change.doc.data();
           lsSet("gh_drw_"+drawKey, {d: dat.d, t: dat.t});
           // If currently viewing this code detail, redraw to show the image
-          if(loaded && S.screen === "codeDetail" && S.code && S.comp) {
-            var expectedKey = S.comp.id + "_" + S.code.id;
-            if(drawKey === expectedKey) draw();
+          if(loaded && S.screen === "codeDetail") {
+            draw(); // Redraw to trigger fresh fetch with new cached data
           }
         }
       }
