@@ -1046,15 +1046,21 @@ function exportProdPDF(orders){
 }
 
 function exportInspPDF(order,master,insp){
-  var allKeys=[];master.forEach(function(c){c.codes.forEach(function(k){k.dimensions.forEach(function(d){allKeys.push(c.id+"__"+k.id+"__"+d.id)})})});
+  var partCodes=order.partCodes||[];
+  var allKeys=[];master.forEach(function(c){c.codes.forEach(function(k){
+    if(partCodes.length===0||partCodes.indexOf(c.id+"__"+k.id)!==-1){
+      k.dimensions.forEach(function(d){allKeys.push(c.id+"__"+k.id+"__"+d.id)});
+    }
+  })});
   var total=allKeys.length,pass=0,fail=0;
   allKeys.forEach(function(k){var r=insp[k];if(r){if(r.status==="Pass")pass++;else if(r.status==="Fail")fail++;}});
   var sp=order.specs||{};var rows="";
   master.forEach(function(comp){
-    if(!comp.codes.some(function(k){return k.dimensions.length}))return;
+    if(!comp.codes.some(function(k){return k.dimensions.length&&(partCodes.length===0||partCodes.indexOf(comp.id+"__"+k.id)!==-1)}))return;
     rows+="<tr style='background:#1565c0;color:#fff'><td colspan='8' style='padding:7px 10px;font-weight:700'>"+comp.name+"<\/td><\/tr>";
     comp.codes.forEach(function(code){
       if(!code.dimensions.length)return;
+      if(partCodes.length>0&&partCodes.indexOf(comp.id+"__"+code.id)===-1)return;
       rows+="<tr style='background:#e3f2fd'><td colspan='8' style='padding:5px 10px;font-weight:700;color:#1565c0'>"+code.codeNo+(code.description?" — "+code.description:"")+"<\/td><\/tr>";
       code.dimensions.forEach(function(dim){
         var key=comp.id+"__"+code.id+"__"+dim.id;var row=insp[key]||{};
