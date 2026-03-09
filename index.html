@@ -356,7 +356,7 @@ function drawOrder() {
   var allKeys=[];
   var partCodes=order.partCodes||[];
   S.master.forEach(function(comp){comp.codes.forEach(function(code){
-    if(partCodes.length===0||partCodes.indexOf(comp.id+"__"+code.id)!==-1){
+    if(partCodes.length>0&&partCodes.indexOf(comp.id+"__"+code.id)!==-1){
       code.dimensions.forEach(function(dim){allKeys.push(comp.id+"__"+code.id+"__"+dim.id)});
     }
   })});
@@ -488,10 +488,22 @@ function drawInspect(order,insp,allKeys,pass,fail,filled,pct) {
   
   w.appendChild(prog);
   var partCodes=order.partCodes||[];
-  var active=S.master.filter(function(c){return c.codes.some(function(k){return k.dimensions.length>0&&(partCodes.length===0||partCodes.indexOf(c.id+"__"+k.id)!==-1)})});
-  if (!active.length){w.appendChild(dv("wb","⚠ No dimensions in Master Menu yet."));return w;}
+  var active=S.master.filter(function(c){return c.codes.some(function(k){return k.dimensions.length>0&&partCodes.length>0&&partCodes.indexOf(c.id+"__"+k.id)!==-1})});
+  if (!active.length){
+    if(partCodes.length===0){
+      var msg=dv("card"); msg.style.cssText="text-align:center;padding:24px 16px;margin-top:10px";
+      var mi=dv("","🔩"); mi.style.cssText="font-size:32px;margin-bottom:8px";
+      var mt=dv("","No part codes selected"); mt.style.cssText="font-weight:700;font-size:15px;color:#333;margin-bottom:6px";
+      var ms=dv("","Go to the Details tab and select which part codes apply to this machine");ms.style.cssText="font-size:13px;color:#888";
+      var mb=bt("bp mt14","Go to Details",function(){S.otab="details";draw();});
+      ap(msg,mi,mt,ms,mb); w.appendChild(msg);
+    } else {
+      w.appendChild(dv("wb","⚠ No dimensions found for selected part codes."));
+    }
+    return w;
+  }
   active.forEach(function(comp,ci){
-    var codes=comp.codes.filter(function(k){return k.dimensions.length>0&&(partCodes.length===0||partCodes.indexOf(comp.id+"__"+k.id)!==-1)});
+    var codes=comp.codes.filter(function(k){return k.dimensions.length>0&&partCodes.length>0&&partCodes.indexOf(comp.id+"__"+k.id)!==-1});
     if (!codes.length) return;
     var isRdy=insp["__r__"+comp.id]&&insp["__r__"+comp.id].ready;
     var ckeys=[];
