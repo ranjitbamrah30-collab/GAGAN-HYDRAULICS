@@ -354,7 +354,12 @@ function drawOrder() {
   if (!order) order=S.ord;
   var insp=order.inspection||{};
   var allKeys=[];
-  S.master.forEach(function(comp){comp.codes.forEach(function(code){code.dimensions.forEach(function(dim){allKeys.push(comp.id+"__"+code.id+"__"+dim.id)})})});
+  var partCodes=order.partCodes||[];
+  S.master.forEach(function(comp){comp.codes.forEach(function(code){
+    if(partCodes.length===0||partCodes.indexOf(comp.id+"__"+code.id)!==-1){
+      code.dimensions.forEach(function(dim){allKeys.push(comp.id+"__"+code.id+"__"+dim.id)});
+    }
+  })});
   var pass=0,fail=0,filled=0;
   allKeys.forEach(function(k){var r=insp[k];if(r&&r.status){if(r.status==="Pass")pass++;else if(r.status==="Fail")fail++;if(r.status!=="Pending")filled++;}});
   var pct=allKeys.length>0?Math.round(filled/allKeys.length*100):0;
@@ -400,7 +405,47 @@ function drawDetails(order) {
     card.appendChild(fg("Specifications",sta)); card.appendChild(fg("Accessories",ata));
     card.appendChild(bt("bp fw mt14","🔒 Save & Lock Specs",function(){var up=Object.assign({},order,{specs:Object.assign({},f)});saveOrder(up);draw()}));
   }
-  w.appendChild(card); return w;
+  w.appendChild(card);
+
+  // Part Codes for Inspection
+  var avail=[];
+  S.master.forEach(function(comp){comp.codes.forEach(function(code){if(code.dimensions&&code.dimensions.length>0){avail.push({comp:comp,code:code,key:comp.id+"__"+code.id});}})});
+  if(avail.length>0){
+    var pc=dv("card"); pc.style.marginTop="10px";
+    var pch=dv("fl jsb ai"); pch.style.marginBottom="10px";
+    var pct=dv("","🔩 Part Codes for Inspection"); pct.style.cssText="font-size:13px;font-weight:700;color:#1565c0;text-transform:uppercase";
+    var pcsub=dv("","Select which part codes apply to this machine"); pcsub.style.cssText="font-size:11px;color:#888;margin-top:2px";
+    var pctxt=dv(""); ap(pctxt,pct,pcsub);
+    ap(pch,pctxt); pc.appendChild(pch);
+    var partCodes=order.partCodes||[];
+    avail.forEach(function(item){
+      var row=dv(""); row.style.cssText="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #f0f0f0;cursor:pointer";
+      var cb=mk("input"); cb.type="checkbox"; cb.checked=partCodes.indexOf(item.key)!==-1;
+      cb.style.cssText="width:18px;height:18px;cursor:pointer;accent-color:#1565c0;flex-shrink:0";
+      var lbl=dv(""); 
+      var ln=dv("",""+item.comp.name+" → "+item.code.codeNo); ln.style.cssText="font-size:13px;font-weight:700;color:#333";
+      var ld=dv("",(item.code.description||"")+" · "+item.code.dimensions.length+" dims"); ld.style.cssText="font-size:11px;color:#888;margin-top:1px";
+      ap(lbl,ln,ld);
+      row.appendChild(cb); row.appendChild(lbl);
+      row.onclick=function(){
+        cb.checked=!cb.checked;
+        var cur=order.partCodes||[];
+        var updated=cb.checked?cur.concat([item.key]):cur.filter(function(k){return k!==item.key});
+        var up=Object.assign({},order,{partCodes:updated});
+        saveOrder(up); order=up;
+      };
+      cb.onclick=function(e){e.stopPropagation();};
+      cb.onchange=function(){
+        var cur=order.partCodes||[];
+        var updated=cb.checked?cur.concat([item.key]):cur.filter(function(k){return k!==item.key});
+        var up=Object.assign({},order,{partCodes:updated});
+        saveOrder(up); order=up;
+      };
+      pc.appendChild(row);
+    });
+    w.appendChild(pc);
+  }
+  return w;
 }
 
 function drawInspect(order,insp,allKeys,pass,fail,filled,pct) {
@@ -417,10 +462,11 @@ function drawInspect(order,insp,allKeys,pass,fail,filled,pct) {
   ap(pst,pss,psf,psp); ap(prog,prow,pb,pst);
   
   w.appendChild(prog);
-  var active=S.master.filter(function(c){return c.codes.some(function(k){return k.dimensions.length>0})});
+  var partCodes=order.partCodes||[];
+  var active=S.master.filter(function(c){return c.codes.some(function(k){return k.dimensions.length>0&&(partCodes.length===0||partCodes.indexOf(c.id+"__"+k.id)!==-1)})});
   if (!active.length){w.appendChild(dv("wb","⚠ No dimensions in Master Menu yet."));return w;}
   active.forEach(function(comp,ci){
-    var codes=comp.codes.filter(function(k){return k.dimensions.length>0});
+    var codes=comp.codes.filter(function(k){return k.dimensions.length>0&&(partCodes.length===0||partCodes.indexOf(comp.id+"__"+k.id)!==-1)});
     if (!codes.length) return;
     var isRdy=insp["__r__"+comp.id]&&insp["__r__"+comp.id].ready;
     var ckeys=[];
