@@ -354,9 +354,9 @@ function drawOrder() {
   if (!order) order=S.ord;
   var insp=order.inspection||{};
   var allKeys=[];
-  var partParts=order.partParts||[];
+  var partCodes=order.partCodes||[];
   S.master.forEach(function(comp){comp.codes.forEach(function(code){
-    if(partParts.length>0&&partParts.indexOf(comp.id+"__"+code.id)!==-1){
+    if(partCodes.length>0&&partCodes.indexOf(comp.id+"__"+code.id)!==-1){
       code.dimensions.forEach(function(dim){allKeys.push(comp.id+"__"+code.id+"__"+dim.id)});
     }
   })});
@@ -450,7 +450,7 @@ function drawDetails(order) {
         (function(m){
           row.onclick=function(){
             // Auto-select ALL part codes of this model
-            var allKeys=m.codes.filter(function(k){return k.dimensions&&k.dimensions.length>0;}).map(function(k){return m.id+"__"+k.id;});
+            var allKeys=m.codes.map(function(k){return m.id+"__"+k.id;});
             var up=Object.assign({},order,{selectedModelId:m.id,partCodes:allKeys});
             saveOrder(up); order=up; S.editingPartCodes=null; draw();
           };
@@ -478,10 +478,10 @@ function drawInspect(order,insp,allKeys,pass,fail,filled,pct) {
   ap(pst,pss,psf,psp); ap(prog,prow,pb,pst);
   
   w.appendChild(prog);
-  var partParts=order.partParts||[];
-  var active=S.master.filter(function(c){return c.codes.some(function(k){return k.dimensions.length>0&&partParts.length>0&&partParts.indexOf(c.id+"__"+k.id)!==-1})});
+  var partCodes=order.partCodes||[];
+  var active=S.master.filter(function(c){return c.codes.some(function(k){return k.dimensions.length>0&&partCodes.length>0&&partCodes.indexOf(c.id+"__"+k.id)!==-1})});
   if (!active.length){
-    if(partParts.length===0){
+    if(partCodes.length===0){
       var msg=dv("card"); msg.style.cssText="text-align:center;padding:24px 16px;margin-top:10px";
       var mi=dv("","🔩"); mi.style.cssText="font-size:32px;margin-bottom:8px";
       var mt=dv("","No part codes selected"); mt.style.cssText="font-weight:700;font-size:15px;color:#333;margin-bottom:6px";
@@ -494,7 +494,7 @@ function drawInspect(order,insp,allKeys,pass,fail,filled,pct) {
     return w;
   }
   active.forEach(function(comp,ci){
-    var codes=comp.codes.filter(function(k){return k.dimensions.length>0&&partParts.length>0&&partParts.indexOf(comp.id+"__"+k.id)!==-1});
+    var codes=comp.codes.filter(function(k){return k.dimensions.length>0&&partCodes.length>0&&partCodes.indexOf(comp.id+"__"+k.id)!==-1});
     if (!codes.length) return;
     var isRdy=insp["__r__"+comp.id]&&insp["__r__"+comp.id].ready;
     var ckeys=[];
@@ -1067,9 +1067,9 @@ function exportProdPDF(orders){
 }
 
 function exportInspPDF(order,master,insp){
-  var partParts=order.partParts||[];
+  var partCodes=order.partCodes||[];
   var allKeys=[];master.forEach(function(c){c.codes.forEach(function(k){
-    if(partParts.length>0&&partParts.indexOf(c.id+"__"+k.id)!==-1){
+    if(partCodes.length>0&&partCodes.indexOf(c.id+"__"+k.id)!==-1){
       k.dimensions.forEach(function(d){allKeys.push(c.id+"__"+k.id+"__"+d.id)});
     }
   })});
@@ -1077,11 +1077,11 @@ function exportInspPDF(order,master,insp){
   allKeys.forEach(function(k){var r=insp[k];if(r){if(r.status==="Pass")pass++;else if(r.status==="Fail")fail++;}});
   var sp=order.specs||{};var rows="";
   master.forEach(function(comp){
-    if(!comp.codes.some(function(k){return k.dimensions.length&&partParts.length>0&&partParts.indexOf(comp.id+"__"+k.id)!==-1}))return;
+    if(!comp.codes.some(function(k){return k.dimensions.length&&partCodes.length>0&&partCodes.indexOf(comp.id+"__"+k.id)!==-1}))return;
     rows+="<tr style='background:#1565c0;color:#fff'><td colspan='8' style='padding:7px 10px;font-weight:700'>"+comp.name+"<\/td><\/tr>";
     comp.codes.forEach(function(code){
       if(!code.dimensions.length)return;
-      if(partParts.length>0&&partParts.indexOf(comp.id+"__"+code.id)===-1)return;
+      if(partCodes.length>0&&partCodes.indexOf(comp.id+"__"+code.id)===-1)return;
       rows+="<tr style='background:#e3f2fd'><td colspan='8' style='padding:5px 10px;font-weight:700;color:#1565c0'>"+code.codeNo+(code.description?" — "+code.description:"")+"<\/td><\/tr>";
       code.dimensions.forEach(function(dim){
         var key=comp.id+"__"+code.id+"__"+dim.id;var row=insp[key]||{};
