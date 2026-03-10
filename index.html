@@ -646,7 +646,37 @@ function drawMaster() {
   });
   pg.appendChild(grid); return pg;
 }
-function showAddComp(){var name="";var c=dv("");c.appendChild(fg("Machine Model Name *",ip("e.g. 750 CO, VWR 1000","",function(v){name=v})));c.appendChild(bt("bp fw mt14","Add Machine Model",function(){if(!name.trim())return;ss({master:S.master.concat([{id:gid(),name:name.trim(),codes:[]}])});closeModal()}));modal("Add Machine Model",c);}
+function showAddComp(){
+  var name="";
+  var DEFAULT_PARTS=["Body Size", "Cylinder Tube", "Cylinder Rod", "Slide Rod", "Front Side", "Rear Side", "Top Plate", "Bottom Plate", "Manifold Block", "Pump Bracket", "Motor Bracket", "Accessories"];
+  var selected=DEFAULT_PARTS.slice(); // all selected by default
+  var c=dv("");
+  c.appendChild(fg("Machine Model Name *",ip("e.g. 750 CO, VWR 1000","",function(v){name=v})));
+  // Parts list
+  var plabel=mk("label"); plabel.textContent="Parts List"; plabel.style.cssText="font-size:13px;font-weight:700;color:#555;display:block;margin:12px 0 6px";
+  var psub=dv("","Uncheck parts not needed for this model"); psub.style.cssText="font-size:11px;color:#888;margin-bottom:8px";
+  c.appendChild(plabel); c.appendChild(psub);
+  var pgrid=dv(""); pgrid.style.cssText="display:flex;flex-direction:column;gap:4px;max-height:280px;overflow-y:auto";
+  DEFAULT_PARTS.forEach(function(part){
+    var row=dv(""); row.style.cssText="display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:8px;background:#f5f7ff;cursor:pointer";
+    var cb=mk("input"); cb.type="checkbox"; cb.checked=true;
+    cb.style.cssText="width:16px;height:16px;accent-color:#1565c0;cursor:pointer;flex-shrink:0";
+    var lbl=dv("",part); lbl.style.cssText="font-size:13px;font-weight:600;color:#333";
+    row.appendChild(cb); row.appendChild(lbl);
+    cb.onchange=function(){if(cb.checked){if(selected.indexOf(part)===-1)selected.push(part);}else{selected=selected.filter(function(p){return p!==part;});}};
+    row.onclick=function(){cb.checked=!cb.checked;cb.onchange();};
+    cb.onclick=function(e){e.stopPropagation();};
+    pgrid.appendChild(row);
+  });
+  c.appendChild(pgrid);
+  c.appendChild(bt("bp fw mt14","Add Machine Model",function(){
+    if(!name.trim())return;
+    var codes=selected.map(function(p){return {id:gid(),codeNo:p,description:"",dimensions:[]};});
+    ss({master:S.master.concat([{id:gid(),name:name.trim(),codes:codes}])});
+    closeModal();
+  }));
+  modal("Add Machine Model",c);
+}
 
 function drawCompDetail(){
   var comp=null;for(var i=0;i<S.master.length;i++){if(S.master[i].id===S.comp.id){comp=S.master[i];break;}}if(!comp)comp=S.comp;
