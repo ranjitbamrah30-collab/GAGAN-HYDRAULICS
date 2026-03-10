@@ -179,7 +179,7 @@ var S = {
   master: lsGet("gh_m", DM),
   orders: lsGet("gh_o", []),
   users:  lsGet("gh_u", DU),
-  screen: "home", htab: "running", otab: "details", hsort: "date_asc", editingPartCodes: null,
+  screen: "home", htab: "running", otab: "details", hsort: "date_asc", editingPartParts: null,
   ord: null, comp: null, code: null
 };
 
@@ -354,9 +354,9 @@ function drawOrder() {
   if (!order) order=S.ord;
   var insp=order.inspection||{};
   var allKeys=[];
-  var partCodes=order.partCodes||[];
+  var partParts=order.partParts||[];
   S.master.forEach(function(comp){comp.codes.forEach(function(code){
-    if(partCodes.length>0&&partCodes.indexOf(comp.id+"__"+code.id)!==-1){
+    if(partParts.length>0&&partParts.indexOf(comp.id+"__"+code.id)!==-1){
       code.dimensions.forEach(function(dim){allKeys.push(comp.id+"__"+code.id+"__"+dim.id)});
     }
   })});
@@ -407,64 +407,55 @@ function drawDetails(order) {
   }
   w.appendChild(card);
 
-  // Part Codes for Inspection
-  var avail=[];
-  S.master.forEach(function(comp){comp.codes.forEach(function(code){if(code.dimensions&&code.dimensions.length>0){avail.push({comp:comp,code:code,key:comp.id+"__"+code.id});}})});
-  if(avail.length>0){
-    var partCodes=order.partCodes||[];
-    var isEditing=!order.partCodes||order.partCodes.length===0||S.editingPartCodes===order.id;
+  // Part Parts for Inspection
+  // Machine Model Selector for Inspection
+  var modelsWithParts=S.master.filter(function(m){return m.codes.some(function(k){return k.dimensions&&k.dimensions.length>0;});});
+  if(modelsWithParts.length>0){
+    var selModelId=order.selectedModelId||null;
+    var selModel=selModelId?S.master.filter(function(m){return m.id===selModelId;})[0]:null;
+    var isEditing=!selModelId||S.editingPartCodes===order.id;
     var pc=dv("card"); pc.style.marginTop="10px";
-    // Header row
-    var pch=dv("fl jsb ai"); pch.style.marginBottom="8px";
-    var pctxt=dv("");
-    var pct=dv("","🔩 Part Codes for Inspection"); pct.style.cssText="font-size:13px;font-weight:700;color:#1565c0;text-transform:uppercase";
-    pctxt.appendChild(pct);
-    if(!isEditing){
-      // Show selected codes summary + Edit button
+    var pch=dv("fl jsb ai"); pch.style.marginBottom="10px";
+    var pct=dv("","🏭 Machine Model for Inspection"); pct.style.cssText="font-size:13px;font-weight:700;color:#1565c0;text-transform:uppercase";
+    var pctxt=dv(""); pctxt.appendChild(pct);
+    if(!isEditing&&selModel){
+      // Show selected model + parts summary + Edit button
       var editBtn=bt("bp sm","✎ Edit",function(){S.editingPartCodes=order.id;draw();});
-      ap(pch,pctxt,editBtn);
-      pc.appendChild(pch);
-      // Show only selected codes as badges
-      var selItems=avail.filter(function(item){return partCodes.indexOf(item.key)!==-1;});
-      if(selItems.length===0){
-        pc.appendChild(dv("","No part codes selected"));
-      } else {
-        var grid=dv(""); grid.style.cssText="display:flex;flex-direction:column;gap:6px";
-        selItems.forEach(function(item){
-          var badge=dv(""); badge.style.cssText="display:flex;align-items:center;gap:8px;background:#e3f2fd;border-radius:8px;padding:7px 10px";
-          var dot=dv(""); dot.style.cssText="width:8px;height:8px;border-radius:50%;background:#1565c0;flex-shrink:0";
-          var lbl=dv("");
-          var ln=dv("",""+item.comp.name+" → "+item.code.codeNo); ln.style.cssText="font-size:13px;font-weight:700;color:#1565c0";
-          var ld=dv("",(item.code.description||"")+" · "+item.code.dimensions.length+" dims"); ld.style.cssText="font-size:11px;color:#555;margin-top:1px";
-          ap(lbl,ln,ld); ap(badge,dot,lbl); grid.appendChild(badge);
-        });
-        pc.appendChild(grid);
-      }
+      ap(pch,pctxt,editBtn); pc.appendChild(pch);
+      var badge=dv(""); badge.style.cssText="background:#e3f2fd;border-radius:10px;padding:10px 14px;display:flex;align-items:center;gap:10px";
+      var icon=dv("","🏭"); icon.style.cssText="font-size:22px";
+      var binfo=dv("");
+      var bname=dv("",selModel.name); bname.style.cssText="font-weight:800;font-size:15px;color:#1565c0";
+      var totalDims=0; selModel.codes.forEach(function(k){totalDims+=k.dimensions?k.dimensions.length:0;});
+      var bsub=dv("",selModel.codes.length+" parts · "+totalDims+" dimensions"); bsub.style.cssText="font-size:12px;color:#555;margin-top:2px";
+      ap(binfo,bname,bsub); ap(badge,icon,binfo); pc.appendChild(badge);
     } else {
-      // Editing mode - show checkboxes
-      var pcsub=dv("","Tick the codes that apply to this machine"); pcsub.style.cssText="font-size:11px;color:#888;margin-top:2px";
+      // Editing - show model selector
+      var pcsub=dv("","Select the machine model to auto-load all its parts & dimensions into inspection"); pcsub.style.cssText="font-size:11px;color:#888;margin-top:2px";
       pctxt.appendChild(pcsub);
-      var doneBtn=bt("bp sm","✔ Done",function(){S.editingPartCodes=null;draw();});
-      ap(pch,pctxt,doneBtn); pc.appendChild(pch);
-      avail.forEach(function(item){
-        var row=dv(""); row.style.cssText="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #f0f0f0;cursor:pointer";
-        var cb=mk("input"); cb.type="checkbox"; cb.checked=partCodes.indexOf(item.key)!==-1;
-        cb.style.cssText="width:18px;height:18px;cursor:pointer;accent-color:#1565c0;flex-shrink:0";
+      var doneBtn=selModelId?bt("bp sm","✔ Done",function(){S.editingPartCodes=null;draw();}):null;
+      ap(pch,pctxt); if(doneBtn) pch.appendChild(doneBtn);
+      pc.appendChild(pch);
+      modelsWithParts.forEach(function(model){
+        var totalDims=0; model.codes.forEach(function(k){totalDims+=k.dimensions?k.dimensions.length:0;});
+        var row=dv(""); 
+        var isSelected=selModelId===model.id;
+        row.style.cssText="display:flex;align-items:center;gap:12px;padding:10px;border-radius:10px;margin-bottom:6px;cursor:pointer;border:2px solid "+(isSelected?"#1565c0":"#e0e0e0")+";background:"+(isSelected?"#e3f2fd":"#fff");
+        var rb=mk("input"); rb.type="radio"; rb.name="modelSel"; rb.checked=isSelected;
+        rb.style.cssText="width:18px;height:18px;cursor:pointer;accent-color:#1565c0;flex-shrink:0";
         var lbl=dv("");
-        var ln=dv("",""+item.comp.name+" → "+item.code.codeNo); ln.style.cssText="font-size:13px;font-weight:700;color:#333";
-        var ld=dv("",(item.code.description||"")+" · "+item.code.dimensions.length+" dims"); ld.style.cssText="font-size:11px;color:#888;margin-top:1px";
-        ap(lbl,ln,ld); row.appendChild(cb); row.appendChild(lbl);
-        function makeToggle(cbEl,k){
-          cbEl.onchange=function(){
-            var cur=order.partCodes||[];
-            var updated=cbEl.checked?cur.concat([k]):cur.filter(function(x){return x!==k});
-            var up=Object.assign({},order,{partCodes:updated});
-            saveOrder(up); order=up;
+        var ln=dv("",model.name); ln.style.cssText="font-size:14px;font-weight:700;color:#333";
+        var ld=dv("",model.codes.length+" parts · "+totalDims+" dimensions"); ld.style.cssText="font-size:11px;color:#888;margin-top:2px";
+        ap(lbl,ln,ld); ap(row,rb,lbl);
+        (function(m){
+          row.onclick=function(){
+            // Auto-select ALL part codes of this model
+            var allKeys=m.codes.filter(function(k){return k.dimensions&&k.dimensions.length>0;}).map(function(k){return m.id+"__"+k.id;});
+            var up=Object.assign({},order,{selectedModelId:m.id,partCodes:allKeys});
+            saveOrder(up); order=up; S.editingPartCodes=null; draw();
           };
-          row.onclick=function(){cbEl.checked=!cbEl.checked;cbEl.onchange();};
-          cbEl.onclick=function(e){e.stopPropagation();};
-        }
-        makeToggle(cb,item.key);
+          rb.onclick=function(e){e.stopPropagation(); row.onclick();};
+        })(model);
         pc.appendChild(row);
       });
     }
@@ -487,10 +478,10 @@ function drawInspect(order,insp,allKeys,pass,fail,filled,pct) {
   ap(pst,pss,psf,psp); ap(prog,prow,pb,pst);
   
   w.appendChild(prog);
-  var partCodes=order.partCodes||[];
-  var active=S.master.filter(function(c){return c.codes.some(function(k){return k.dimensions.length>0&&partCodes.length>0&&partCodes.indexOf(c.id+"__"+k.id)!==-1})});
+  var partParts=order.partParts||[];
+  var active=S.master.filter(function(c){return c.codes.some(function(k){return k.dimensions.length>0&&partParts.length>0&&partParts.indexOf(c.id+"__"+k.id)!==-1})});
   if (!active.length){
-    if(partCodes.length===0){
+    if(partParts.length===0){
       var msg=dv("card"); msg.style.cssText="text-align:center;padding:24px 16px;margin-top:10px";
       var mi=dv("","🔩"); mi.style.cssText="font-size:32px;margin-bottom:8px";
       var mt=dv("","No part codes selected"); mt.style.cssText="font-weight:700;font-size:15px;color:#333;margin-bottom:6px";
@@ -503,7 +494,7 @@ function drawInspect(order,insp,allKeys,pass,fail,filled,pct) {
     return w;
   }
   active.forEach(function(comp,ci){
-    var codes=comp.codes.filter(function(k){return k.dimensions.length>0&&partCodes.length>0&&partCodes.indexOf(comp.id+"__"+k.id)!==-1});
+    var codes=comp.codes.filter(function(k){return k.dimensions.length>0&&partParts.length>0&&partParts.indexOf(comp.id+"__"+k.id)!==-1});
     if (!codes.length) return;
     var isRdy=insp["__r__"+comp.id]&&insp["__r__"+comp.id].ready;
     var ckeys=[];
@@ -630,13 +621,13 @@ function drawMaster() {
   btextlg_.appendChild(bnamelg_);btextlg_.appendChild(bsublg_);
   var brandlg_=document.createElement("div");brandlg_.style.cssText="display:flex;align-items:center;gap:10px;flex-shrink:0";
   brandlg_.appendChild(lg_);brandlg_.appendChild(divdrlg_);brandlg_.appendChild(btextlg_);
-  var ctrMas=document.createElement("div");ctrMas.style.cssText="flex:1;text-align:center;font-size:13px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase";ctrMas.textContent="Master Library";
-  ap(hr,brandlg_,ctrMas,bt("bp sm","+ Add",function(){showAddComp()}));
+  var ctrMas=document.createElement("div");ctrMas.style.cssText="flex:1;text-align:center;font-size:13px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase";ctrMas.textContent="Machine Models";
+  ap(hr,brandlg_,ctrMas,bt("bp sm","+ Model",function(){showAddComp()}));
   hdr.appendChild(hr); pg.appendChild(hdr);
   var tc=0,td2=0;
   S.master.forEach(function(c){tc+=c.codes.length;c.codes.forEach(function(k){td2+=k.dimensions.length})});
   var sr=dv("srow");
-  [{v:S.master.length,l:"Components"},{v:tc,l:"Codes"},{v:td2,l:"Dims"}].forEach(function(s){var sc=dv("sc");ap(sc,dv("sv",String(s.v)),dv("sl",s.l));sr.appendChild(sc)});
+  [{v:S.master.length,l:"Machine Models"},{v:tc,l:"Parts"},{v:td2,l:"Dims"}].forEach(function(s){var sc=dv("sc");ap(sc,dv("sv",String(s.v)),dv("sl",s.l));sr.appendChild(sc)});
   pg.appendChild(sr);
   var grid=dv("mg");
   S.master.forEach(function(comp,i){
@@ -655,15 +646,15 @@ function drawMaster() {
   });
   pg.appendChild(grid); return pg;
 }
-function showAddComp(){var name="";var c=dv("");c.appendChild(fg("Component Name *",ip("e.g. Piston Assembly","",function(v){name=v})));c.appendChild(bt("bp fw mt14","Add Component",function(){if(!name.trim())return;ss({master:S.master.concat([{id:gid(),name:name.trim(),codes:[]}])});closeModal()}));modal("Add Component",c);}
+function showAddComp(){var name="";var c=dv("");c.appendChild(fg("Machine Model Name *",ip("e.g. 750 CO, VWR 1000","",function(v){name=v})));c.appendChild(bt("bp fw mt14","Add Machine Model",function(){if(!name.trim())return;ss({master:S.master.concat([{id:gid(),name:name.trim(),codes:[]}])});closeModal()}));modal("Add Machine Model",c);}
 
 function drawCompDetail(){
   var comp=null;for(var i=0;i<S.master.length;i++){if(S.master[i].id===S.comp.id){comp=S.master[i];break;}}if(!comp)comp=S.comp;
   var pg=dv("pg");var hdr=dv("ph");var hr=dv("phr");
   var bk=mk("button");bk.textContent="←";bk.style.cssText="background:rgba(255,255,255,.2);border:none;color:#fff;border-radius:6px;padding:4px 8px;cursor:pointer;font-size:14px;font-family:Arial,sans-serif";bk.onclick=function(){ss({screen:"master"});};
-  var left=dv("fl ai gap8");ap(left,bk,dv("pt",comp.name));var info=dv("");ap(info,left,dv("ps","Part Codes"));
-  ap(hr,info,bt("bp sm","+ Add",function(){showCodeModal(comp)}));hdr.appendChild(hr);pg.appendChild(hdr);
-  if(!comp.codes.length){pg.appendChild(dv("empty","📂 No codes yet."));return pg;}
+  var left=dv("fl ai gap8");ap(left,bk,dv("pt",comp.name));var info=dv("");ap(info,left,dv("ps","Parts List"));
+  ap(hr,info,bt("bp sm","+ Part",function(){showCodeModal(comp)}));hdr.appendChild(hr);pg.appendChild(hdr);
+  if(!comp.codes.length){pg.appendChild(dv("empty","📂 No parts yet. Add the parts that belong to this machine model."));return pg;}
   comp.codes.forEach(function(code,i){
     var card=dv("card");var top=dv("fl jsb ai gap8");
     var nb=mk("div");nb.style.cssText="width:32px;height:32px;background:#1565c0;color:#fff;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0";nb.textContent=String(i+1).padStart(2,"0");
@@ -685,10 +676,10 @@ function showCodeModal(comp,ex){
   var f={codeNo:ex?ex.codeNo:"",description:ex?ex.description:""};
   var c=dv("");
   ap(c,
-    fg("Code / Drawing / Part No *",ip("e.g. DRG-001",f.codeNo,function(v){f.codeNo=v})),
+    fg("Part Name *",ip("e.g. Body Size, Cylinder Rod",f.codeNo,function(v){f.codeNo=v})),
     fg("Description (optional)",ip("e.g. Front End Cap",f.description,function(v){f.description=v}))
   );
-  c.appendChild(bt("bp fw mt14",ex?"Save Changes":"Add Code",function(){
+  c.appendChild(bt("bp fw mt14",ex?"Save Changes":"Add Part",function(){
     if(!f.codeNo.trim())return;
     if(ex){ss({master:S.master.map(function(c2){return c2.id!==comp.id?c2:Object.assign({},c2,{codes:c2.codes.map(function(k){return k.id!==ex.id?k:Object.assign({},k,{codeNo:f.codeNo,description:f.description,image:k.image||""})})})})});}
     else{ss({master:S.master.map(function(c2){return c2.id!==comp.id?c2:Object.assign({},c2,{codes:c2.codes.concat([{id:gid(),codeNo:f.codeNo,description:f.description,image:"",dimensions:[]}])})})});}
@@ -1046,9 +1037,9 @@ function exportProdPDF(orders){
 }
 
 function exportInspPDF(order,master,insp){
-  var partCodes=order.partCodes||[];
+  var partParts=order.partParts||[];
   var allKeys=[];master.forEach(function(c){c.codes.forEach(function(k){
-    if(partCodes.length>0&&partCodes.indexOf(c.id+"__"+k.id)!==-1){
+    if(partParts.length>0&&partParts.indexOf(c.id+"__"+k.id)!==-1){
       k.dimensions.forEach(function(d){allKeys.push(c.id+"__"+k.id+"__"+d.id)});
     }
   })});
@@ -1056,11 +1047,11 @@ function exportInspPDF(order,master,insp){
   allKeys.forEach(function(k){var r=insp[k];if(r){if(r.status==="Pass")pass++;else if(r.status==="Fail")fail++;}});
   var sp=order.specs||{};var rows="";
   master.forEach(function(comp){
-    if(!comp.codes.some(function(k){return k.dimensions.length&&partCodes.length>0&&partCodes.indexOf(comp.id+"__"+k.id)!==-1}))return;
+    if(!comp.codes.some(function(k){return k.dimensions.length&&partParts.length>0&&partParts.indexOf(comp.id+"__"+k.id)!==-1}))return;
     rows+="<tr style='background:#1565c0;color:#fff'><td colspan='8' style='padding:7px 10px;font-weight:700'>"+comp.name+"<\/td><\/tr>";
     comp.codes.forEach(function(code){
       if(!code.dimensions.length)return;
-      if(partCodes.length>0&&partCodes.indexOf(comp.id+"__"+code.id)===-1)return;
+      if(partParts.length>0&&partParts.indexOf(comp.id+"__"+code.id)===-1)return;
       rows+="<tr style='background:#e3f2fd'><td colspan='8' style='padding:5px 10px;font-weight:700;color:#1565c0'>"+code.codeNo+(code.description?" — "+code.description:"")+"<\/td><\/tr>";
       code.dimensions.forEach(function(dim){
         var key=comp.id+"__"+code.id+"__"+dim.id;var row=insp[key]||{};
