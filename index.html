@@ -175,11 +175,13 @@ function syncUp(key, data) {
     .catch(function(e){ showSyncStatus("FAILED: " + e.code, "#f44336"); console.error("syncUp err", key, e); });
 }
 
+var DEFAULT_PART_NAMES=["Body Size","Cylinder Tube","Cylinder Rod","Slide Rod","Front Side","Rear Side","Top Plate","Bottom Plate","Manifold Block","Pump Bracket","Motor Bracket","Accessories"];
 var S = {
   master: lsGet("gh_m", DM),
   orders: lsGet("gh_o", []),
   users:  lsGet("gh_u", DU),
-  screen: "home", htab: "running", otab: "details", hsort: "date_asc", editingPartParts: null,
+  screen: "home", htab: "running", otab: "details", hsort: "date_asc", editingPartCodes: null,
+  dparts: lsGet("gh_dp", null),
   ord: null, comp: null, code: null
 };
 
@@ -188,6 +190,7 @@ function ss(p) {
   if (p.master !== undefined) syncUp("master", S.master);
   if (p.orders !== undefined) syncUp("orders", S.orders);
   if (p.users  !== undefined) syncUp("users",  S.users);
+  if (p.dparts !== undefined) { lsSet("gh_dp", S.dparts); if(db) db.collection("gh").doc("dparts").set({d:JSON.stringify(S.dparts)}); }
   draw();
 }
 
@@ -622,7 +625,9 @@ function drawMaster() {
   var brandlg_=document.createElement("div");brandlg_.style.cssText="display:flex;align-items:center;gap:10px;flex-shrink:0";
   brandlg_.appendChild(lg_);brandlg_.appendChild(divdrlg_);brandlg_.appendChild(btextlg_);
   var ctrMas=document.createElement("div");ctrMas.style.cssText="flex:1;text-align:center;font-size:13px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase";ctrMas.textContent="Machine Models";
-  ap(hr,brandlg_,ctrMas,bt("bp sm","+ Model",function(){showAddComp()}));
+  var editDpBtn=bt("","⚙",function(){showEditDefaultParts();}); editDpBtn.style.cssText="background:rgba(255,255,255,0.2);border:none;color:#fff;border-radius:6px;padding:5px 8px;cursor:pointer;font-size:15px;margin-right:4px;font-family:Arial,sans-serif"; editDpBtn.title="Edit Default Parts List";
+  var btnGrp=dv("fl ai gap8"); btnGrp.appendChild(editDpBtn); btnGrp.appendChild(bt("bp sm","+ Model",function(){showAddComp()}));
+  ap(hr,brandlg_,ctrMas,btnGrp);
   hdr.appendChild(hr); pg.appendChild(hdr);
   var tc=0,td2=0;
   S.master.forEach(function(c){tc+=c.codes.length;c.codes.forEach(function(k){td2+=k.dimensions.length})});
@@ -646,9 +651,49 @@ function drawMaster() {
   });
   pg.appendChild(grid); return pg;
 }
+function showEditDefaultParts(){
+  var parts=(S.dparts||lsGet("gh_dp",null)||DEFAULT_PART_NAMES).slice();
+  var c=dv("");
+  var lbl=mk("label"); lbl.textContent="Default Parts List"; lbl.style.cssText="font-size:13px;font-weight:700;color:#555;display:block;margin-bottom:8px";
+  var sub=dv("","These parts are pre-loaded when creating a new Machine Model"); sub.style.cssText="font-size:11px;color:#888;margin-bottom:10px";
+  c.appendChild(lbl); c.appendChild(sub);
+  var list=dv(""); list.style.cssText="display:flex;flex-direction:column;gap:4px;margin-bottom:10px";
+  function renderList(){
+    list.innerHTML="";
+    parts.forEach(function(part,i){
+      var row=dv(""); row.style.cssText="display:flex;align-items:center;gap:6px;padding:5px 8px;background:#f5f7ff;border-radius:8px";
+      var drag=dv("","⋮⋮"); drag.style.cssText="color:#bbb;font-size:14px;flex-shrink:0";
+      var inp=mk("input"); inp.type="text"; inp.value=part;
+      inp.style.cssText="flex:1;border:1px solid #e0e0e0;border-radius:6px;padding:5px 8px;font-size:13px;font-family:Arial,sans-serif";
+      inp.oninput=function(){parts[i]=inp.value;};
+      var del=mk("button"); del.textContent="✕"; del.style.cssText="background:none;border:none;color:#c62828;font-size:16px;cursor:pointer;padding:2px 4px;flex-shrink:0";
+      del.onclick=function(){parts.splice(i,1);renderList();};
+      ap(row,drag,inp,del); list.appendChild(row);
+    });
+  }
+  renderList();
+  c.appendChild(list);
+  // Add new part button
+  var addRow=dv("fl ai gap8");
+  var newInp=mk("input"); newInp.type="text"; newInp.placeholder="New part name...";
+  newInp.style.cssText="flex:1;border:1px solid #e0e0e0;border-radius:6px;padding:7px 8px;font-size:13px;font-family:Arial,sans-serif";
+  var addBtn=bt("bp sm","+ Add",function(){
+    var v=newInp.value.trim(); if(!v)return;
+    parts.push(v); newInp.value=""; renderList();
+  });
+  newInp.onkeydown=function(e){if(e.key==="Enter"){addBtn.onclick();}};
+  ap(addRow,newInp,addBtn); c.appendChild(addRow);
+  // Save button
+  c.appendChild(bt("bp fw mt14","💾 Save Default Parts",function(){
+    var clean=parts.filter(function(p){return p.trim();});
+    ss({dparts:clean}); closeModal();
+  }));
+  modal("⚙ Edit Default Parts List",c);
+}
+
 function showAddComp(){
   var name="";
-  var DEFAULT_PARTS=["Body Size", "Cylinder Tube", "Cylinder Rod", "Slide Rod", "Front Side", "Rear Side", "Top Plate", "Bottom Plate", "Manifold Block", "Pump Bracket", "Motor Bracket", "Accessories"];
+  var DEFAULT_PARTS=S.dparts||lsGet("gh_dp",null)||DEFAULT_PART_NAMES;
   var selected=DEFAULT_PARTS.slice(); // all selected by default
   var c=dv("");
   c.appendChild(fg("Machine Model Name *",ip("e.g. 750 CO, VWR 1000","",function(v){name=v})));
@@ -1167,8 +1212,10 @@ function loadAndDraw() {
   Promise.all([
     db.collection("gh").doc("master").get(),
     db.collection("gh").doc("orders").get(),
-    db.collection("gh").doc("users").get()
+    db.collection("gh").doc("users").get(),
+    db.collection("gh").doc("dparts").get()
   ]).then(function(docs) {
+    if(docs[3]&&docs[3].exists){var dp=JSON.parse(docs[3].data().d);S.dparts=dp;lsSet("gh_dp",dp);}
     if (docs[0].exists) { S.master = JSON.parse(docs[0].data().d); lsSet("gh_m", S.master); }
     if (docs[1].exists) { S.orders = JSON.parse(docs[1].data().d); lsSet("gh_o", S.orders); }
     if (docs[2].exists) { S.users  = JSON.parse(docs[2].data().d); lsSet("gh_u", S.users); }
