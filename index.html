@@ -707,27 +707,42 @@ function showEditDefaultParts(){
       rightPanel.appendChild(nd);
     }
     part.dims.forEach(function(dim,di){
-      var row=dv(""); row.style.cssText="background:#f5f7ff;border-radius:8px;padding:7px 8px;margin-bottom:5px;display:flex;flex-direction:column;gap:5px";
-      var r1=dv("fl ai gap6");
-      var nInp=mk("input"); nInp.type="text"; nInp.value=dim.name; nInp.placeholder="Dim name";
-      nInp.style.cssText="flex:1;border:1px solid #e0e0e0;border-radius:6px;padding:5px 7px;font-size:12px;font-family:Arial,sans-serif";
+      var row=dv(""); row.style.cssText="background:#f5f7ff;border-radius:8px;padding:8px 10px;margin-bottom:6px;display:flex;flex-direction:column;gap:6px";
+      // Row 1: Dim number + delete
+      var rHdr=dv("fl jsb ai");
+      var rNum=dv("","Dimension "+(di+1)); rNum.style.cssText="font-size:11px;font-weight:700;color:#1565c0;text-transform:uppercase;letter-spacing:0.5px";
+      var dBtn=mk("button"); dBtn.textContent="✕ Remove"; dBtn.style.cssText="background:none;border:none;color:#c62828;font-size:11px;cursor:pointer;padding:2px 4px;font-family:Arial,sans-serif;font-weight:700";
+      dBtn.onclick=function(){part.dims.splice(di,1);renderRight();};
+      ap(rHdr,rNum,dBtn); row.appendChild(rHdr);
+      // Row 2: Dim Name (full width)
+      var nameWrap=dv(""); nameWrap.style.cssText="display:flex;flex-direction:column;gap:3px";
+      var nameLbl=dv("","Dimension Name *"); nameLbl.style.cssText="font-size:11px;font-weight:700;color:#555";
+      var nInp=mk("input"); nInp.type="text"; nInp.value=dim.name; nInp.placeholder="e.g. Width, Bore Diameter, Rod Length";
+      nInp.style.cssText="width:100%;box-sizing:border-box;border:1px solid #c5cae9;border-radius:6px;padding:6px 8px;font-size:13px;font-family:Arial,sans-serif;background:#fff";
       nInp.oninput=function(){dim.name=nInp.value;};
-      // Unit selector
-      var uSel=mk("select"); uSel.style.cssText="border:1px solid #e0e0e0;border-radius:6px;padding:5px;font-size:12px;font-family:Arial,sans-serif;background:#fff";
+      ap(nameWrap,nameLbl,nInp); row.appendChild(nameWrap);
+      // Row 3: Unit + Std Value + Tolerance
+      var r3=dv("fl ai gap6");
+      var unitWrap=dv(""); unitWrap.style.cssText="display:flex;flex-direction:column;gap:3px";
+      var unitLbl=dv("","Unit"); unitLbl.style.cssText="font-size:11px;font-weight:700;color:#555";
+      var uSel=mk("select"); uSel.style.cssText="border:1px solid #c5cae9;border-radius:6px;padding:6px 4px;font-size:12px;font-family:Arial,sans-serif;background:#fff";
       ["mm","inch","°","N/A"].forEach(function(u){var o=mk("option");o.value=u;o.textContent=u;if(u===dim.unit)o.selected=true;uSel.appendChild(o);});
       uSel.onchange=function(){dim.unit=uSel.value;};
-      var dBtn=mk("button"); dBtn.textContent="✕"; dBtn.style.cssText="background:none;border:none;color:#c62828;font-size:14px;cursor:pointer;padding:2px 4px;font-family:Arial,sans-serif";
-      dBtn.onclick=function(){part.dims.splice(di,1);renderRight();};
-      ap(r1,nInp,uSel,dBtn);
-      var r2=dv("fl ai gap6");
-      var svInp=mk("input"); svInp.type="text"; svInp.value=dim.stdVal||""; svInp.placeholder="Std value (optional)";
-      svInp.style.cssText="flex:1;border:1px solid #e0e0e0;border-radius:6px;padding:5px 7px;font-size:12px;font-family:Arial,sans-serif";
+      ap(unitWrap,unitLbl,uSel);
+      var svWrap=dv(""); svWrap.style.cssText="flex:1;display:flex;flex-direction:column;gap:3px";
+      var svLbl=dv("","Std Value"); svLbl.style.cssText="font-size:11px;font-weight:700;color:#555";
+      var svInp=mk("input"); svInp.type="text"; svInp.value=dim.stdVal||""; svInp.placeholder="e.g. 100";
+      svInp.style.cssText="width:100%;box-sizing:border-box;border:1px solid #c5cae9;border-radius:6px;padding:6px 8px;font-size:12px;font-family:Arial,sans-serif;background:#fff";
       svInp.oninput=function(){dim.stdVal=svInp.value;};
-      var tolInp=mk("input"); tolInp.type="text"; tolInp.value=dim.tol||""; tolInp.placeholder="Tolerance ±";
-      tolInp.style.cssText="flex:1;border:1px solid #e0e0e0;border-radius:6px;padding:5px 7px;font-size:12px;font-family:Arial,sans-serif";
+      ap(svWrap,svLbl,svInp);
+      var tolWrap=dv(""); tolWrap.style.cssText="flex:1;display:flex;flex-direction:column;gap:3px";
+      var tolLbl=dv("","Tolerance ±"); tolLbl.style.cssText="font-size:11px;font-weight:700;color:#555";
+      var tolInp=mk("input"); tolInp.type="text"; tolInp.value=dim.tol||""; tolInp.placeholder="e.g. ±0.5";
+      tolInp.style.cssText="width:100%;box-sizing:border-box;border:1px solid #c5cae9;border-radius:6px;padding:6px 8px;font-size:12px;font-family:Arial,sans-serif;background:#fff";
       tolInp.oninput=function(){dim.tol=tolInp.value;};
-      ap(r2,svInp,tolInp);
-      ap(row,r1,r2); rightPanel.appendChild(row);
+      ap(tolWrap,tolLbl,tolInp);
+      ap(r3,unitWrap,svWrap,tolWrap); row.appendChild(r3);
+      rightPanel.appendChild(row);
     });
   }
 
