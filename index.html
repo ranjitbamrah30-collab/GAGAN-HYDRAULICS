@@ -81,6 +81,7 @@ td input,td select{padding:6px 8px;font-size:12px;border-radius:6px;min-width:80
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-storage-compat.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 </head>
 <body>
 <div id="scr"></div>
@@ -693,7 +694,29 @@ function showStageModal(order) {
 
 function exportModelPDF(comp){
   // Gather all drawings async then print
-  var drawPromises=comp.codes.map(function(code){
+  // Helper: convert PDF data URI to canvas image
+  function pdfToImg(pdfSrc){
+    return new Promise(function(resolve){
+      try{
+        if(typeof pdfjsLib==="undefined"){resolve(null);return;}
+        pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+        var loadTask=pdfjsLib.getDocument(pdfSrc);
+        loadTask.promise.then(function(pdf){
+          pdf.getPage(1).then(function(page){
+            var vp=page.getViewport({scale:2.0});
+            var canvas=document.createElement("canvas");
+            canvas.width=vp.width; canvas.height=vp.height;
+            var ctx=canvas.getContext("2d");
+            page.render({canvasContext:ctx,viewport:vp}).promise.then(function(){
+              resolve(canvas.toDataURL("image/jpeg",0.92));
+            }).catch(function(){resolve(null);});
+          }).catch(function(){resolve(null);});
+        }).catch(function(){resolve(null);});
+      }catch(e){resolve(null);}
+    });
+  }
+
+  function getRawDrawing(code){
     if(!code.image||!code.image.length) return Promise.resolve({code:code,src:null,isPdf:false});
     if(code.image.indexOf("__ref__")===0){
       var drawKey=code.image.replace("__ref__","");
@@ -709,6 +732,17 @@ function exportModelPDF(comp){
       }).catch(function(){return {code:code,src:null,isPdf:false};});
     }
     return Promise.resolve({code:code,src:code.image,isPdf:code.imageType==="pdf"});
+  }
+
+  var drawPromises=comp.codes.map(function(code){
+    return getRawDrawing(code).then(function(r){
+      if(r.isPdf&&r.src){
+        return pdfToImg(r.src).then(function(imgData){
+          r.canvasImg=imgData; return r;
+        });
+      }
+      return r;
+    });
   });
   Promise.all(drawPromises).then(function(results){
     var drawMap={};
@@ -757,7 +791,12 @@ function exportModelPDF(comp){
       if(dInfo&&dInfo.src&&!dInfo.isPdf){
         html2+="<img src='"+dInfo.src+"' alt='"+code.codeNo+" Drawing'/>";
       } else if(dInfo&&dInfo.src&&dInfo.isPdf){
-        html2+="<div class='no-drg' style='background:#fff8e1;border:1px solid #ffe082;border-radius:6px;padding:10px;color:#e65100;font-size:12px;'>📄 PDF Drawing — Please view reference drawing in the app (PDF cannot be embedded in print)</div>";
+        // PDF converted to image via canvas - embed as img
+        if(dInfo.canvasImg){
+          html2+="<img src='"+dInfo.canvasImg+"' alt='"+code.codeNo+" Drawing (PDF)'/>";
+        } else {
+          html2+="<div class='no-drg' style='background:#fff8e1;border:1px solid #ffe082;border-radius:6px;padding:10px;color:#e65100;font-size:12px;'>📄 PDF drawing — could not render</div>";
+        }
       } else {
         html2+="<div class='no-drg'>No drawing uploaded</div>";
       }
