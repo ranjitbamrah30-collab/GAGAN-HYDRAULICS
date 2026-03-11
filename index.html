@@ -468,6 +468,67 @@ function drawDetails(order) {
   return w;
 }
 
+function showDrawingViewer(compId, code){
+  var drawKey=null;
+  if(code.image&&code.image.indexOf("__ref__")===0){
+    drawKey=code.image.replace("__ref__","");
+  }
+  var c=dv(""); c.style.cssText="min-height:300px;display:flex;flex-direction:column;align-items:center;justify-content:center";
+  var loading=dv("","⏳ Loading drawing..."); loading.style.cssText="color:#888;font-size:14px";
+  c.appendChild(loading);
+  modal("📐 "+code.codeNo+" — Drawing",c);
+  function showImg(src, isPdf){
+    c.innerHTML="";
+    if(isPdf){
+      var frame=mk("iframe"); frame.src=src+"#toolbar=0&navpanes=0&scrollbar=0&view=FitH";
+      frame.style.cssText="width:100%;height:420px;border:none;border-radius:8px;background:#f5f5f5";
+      var fsBtn=mk("button"); fsBtn.textContent="⛶ Full Screen";
+      fsBtn.style.cssText="margin-top:8px;background:#1565c0;color:#fff;border:none;border-radius:8px;padding:8px 16px;font-size:13px;font-weight:700;cursor:pointer;font-family:Arial,sans-serif;width:100%";
+      fsBtn.onclick=function(){
+        var ov=dv(""); ov.style.cssText="position:fixed;top:0;left:0;width:100vw;height:100vh;background:#000;z-index:9999;display:flex;flex-direction:column";
+        var bar=dv("fl jsb ai"); bar.style.cssText="padding:8px 12px;background:#111;flex-shrink:0";
+        var title=dv("",code.codeNo); title.style.cssText="color:#fff;font-size:13px;font-weight:700";
+        var cls=mk("button"); cls.textContent="✕ Close"; cls.style.cssText="background:rgba(255,255,255,0.15);color:#fff;border:none;border-radius:6px;padding:6px 12px;cursor:pointer;font-family:Arial,sans-serif;font-size:13px";
+        cls.onclick=function(){document.body.removeChild(ov);};
+        ap(bar,title,cls); ov.appendChild(bar);
+        var fr2=mk("iframe"); fr2.src=src; fr2.style.cssText="flex:1;border:none;width:100%";
+        ov.appendChild(fr2); document.body.appendChild(ov);
+      };
+      ap(c,frame,fsBtn);
+    } else {
+      var scale=1, posX=0, posY=0, dragging=false, lastX=0, lastY=0;
+      var imgWrap=dv(""); imgWrap.style.cssText="overflow:hidden;border-radius:8px;background:#f5f5f5;border:1px solid #e0e0e0;max-height:420px;display:flex;align-items:center;justify-content:center;cursor:grab;position:relative";
+      var img=mk("img"); img.src=src; img.style.cssText="max-width:100%;transform-origin:center center;transition:transform 0.1s;pointer-events:none;user-select:none";
+      imgWrap.appendChild(img);
+      function applyTransform(){img.style.transform="scale("+scale+") translate("+posX/scale+"px,"+posY/scale+"px)";}
+      imgWrap.onwheel=function(e){e.preventDefault();scale=Math.min(5,Math.max(0.5,scale+(e.deltaY<0?0.2:-0.2)));applyTransform();};
+      imgWrap.onmousedown=function(e){dragging=true;lastX=e.clientX;lastY=e.clientY;imgWrap.style.cursor="grabbing";};
+      imgWrap.onmousemove=function(e){if(!dragging)return;posX+=e.clientX-lastX;posY+=e.clientY-lastY;lastX=e.clientX;lastY=e.clientY;applyTransform();};
+      imgWrap.onmouseup=imgWrap.onmouseleave=function(){dragging=false;imgWrap.style.cursor="grab";};
+      var btnRow=dv("fl ai gap8"); btnRow.style.cssText="margin-top:8px;justify-content:center";
+      function zBtn(lbl,fn){var b=mk("button");b.textContent=lbl;b.style.cssText="background:#e3f2fd;color:#1565c0;border:1px solid #90caf9;border-radius:6px;padding:6px 12px;font-size:13px;font-weight:700;cursor:pointer;font-family:Arial,sans-serif";b.onclick=fn;return b;}
+      btnRow.appendChild(zBtn("−",function(){scale=Math.max(0.5,scale-0.3);posX=0;posY=0;applyTransform();}));
+      btnRow.appendChild(zBtn("Reset",function(){scale=1;posX=0;posY=0;applyTransform();}));
+      btnRow.appendChild(zBtn("+",function(){scale=Math.min(5,scale+0.3);posX=0;posY=0;applyTransform();}));
+      ap(c,imgWrap,btnRow);
+    }
+  }
+  if(drawKey){
+    var cached=lsGet("gh_drw_"+drawKey,null);
+    if(cached){showImg(cached.d,cached.t==="pdf");}
+    else if(db){
+      db.collection("gh").doc("drawings_"+drawKey).get().then(function(doc){
+        if(doc.exists){var dat=JSON.parse(doc.data().d||"{}");showImg(dat.d||doc.data().d,dat.t==="pdf"||(dat.d||"").startsWith("data:application/pdf"));}
+        else{c.innerHTML="";c.appendChild(dv("","No drawing found."));}
+      }).catch(function(){c.innerHTML="";c.appendChild(dv("","Error loading drawing."));});
+    }
+  } else if(code.image){
+    showImg(code.image, code.imageType==="pdf");
+  } else {
+    c.innerHTML=""; c.appendChild(dv("","No drawing uploaded for this part."));
+  }
+}
+
 function drawInspect(order,insp,allKeys,pass,fail,filled,pct) {
   var w=dv(""); var prog=dv("card");
   var prow=dv("fl jsb ai");
@@ -519,9 +580,24 @@ function drawInspect(order,insp,allKeys,pass,fail,filled,pct) {
     ch.onclick=(function(bd,ar,rbtn){return function(e){if(e.target===rbtn||rbtn.contains(e.target))return;var open=bd.style.display!=="none";bd.style.display=open?"none":"block";ar.textContent=open?"▶":"▼";ar.style.color=open?"#999":"#1565c0";}})(body,arrow,rb);
     ap(cc,ch,body);
     codes.forEach(function(code){
-      var cbar=dv("fl ai gap8"); cbar.style.cssText="padding:10px 14px;background:#f8f9ff;border-top:1px solid #eee;flex-wrap:wrap";
+      var cbar=dv("fl ai gap8"); cbar.style.cssText="padding:10px 14px;background:#f8f9ff;border-top:1px solid #eee;flex-wrap:wrap;justify-content:space-between";
+      var cbarLeft=dv("fl ai gap8");
       var cnm=mk("span"); cnm.style.cssText="background:#1565c0;color:#fff;border-radius:6px;padding:3px 10px;font-size:12px;font-weight:700"; cnm.textContent=code.codeNo;
-      ap(cbar,cnm,code.description?document.createTextNode(" "+code.description):"");
+      ap(cbarLeft,cnm,code.description?document.createTextNode(" "+code.description):"");
+      // View DRG button
+      (function(compId,codeObj){
+        var hasDrawing=codeObj.image&&codeObj.image.length>0;
+        if(hasDrawing){
+          var drgBtn=mk("button"); drgBtn.textContent="📐 View DRG";
+          drgBtn.style.cssText="background:#e8f5e9;color:#1b5e20;border:1px solid #a5d6a7;border-radius:6px;padding:4px 10px;font-size:11px;font-weight:700;cursor:pointer;font-family:Arial,sans-serif;white-space:nowrap";
+          drgBtn.onclick=function(e){
+            e.stopPropagation();
+            showDrawingViewer(compId,codeObj);
+          };
+          cbarLeft.appendChild(drgBtn);
+        }
+      })(comp.id,code);
+      ap(cbar,cbarLeft);
       
       var tw=dv("ts"); var tbl=mk("table"); var thead=mk("thead"); var hr=mk("tr");
       ["Dimension","Standard","Tolerance","Unit","Actual","Status","Inspector","Remarks"].forEach(function(h){var th=mk("th");th.textContent=h;hr.appendChild(th)});
@@ -615,6 +691,84 @@ function showStageModal(order) {
   modal("📍 Process Stage",c);
 }
 
+function exportModelPDF(comp){
+  // Gather all drawings async then print
+  var drawPromises=comp.codes.map(function(code){
+    if(!code.image||!code.image.length) return Promise.resolve({code:code,src:null,isPdf:false});
+    if(code.image.indexOf("__ref__")===0){
+      var drawKey=code.image.replace("__ref__","");
+      var cached=lsGet("gh_drw_"+drawKey,null);
+      if(cached) return Promise.resolve({code:code,src:cached.d,isPdf:cached.t==="pdf"});
+      if(!db) return Promise.resolve({code:code,src:null,isPdf:false});
+      return db.collection("gh").doc("drawings_"+drawKey).get().then(function(doc){
+        if(!doc.exists) return {code:code,src:null,isPdf:false};
+        var dat=JSON.parse(doc.data().d||"{}");
+        var src=dat.d||doc.data().d;
+        var isPdf=dat.t==="pdf"||(src||"").startsWith("data:application/pdf");
+        return {code:code,src:src,isPdf:isPdf};
+      }).catch(function(){return {code:code,src:null,isPdf:false};});
+    }
+    return Promise.resolve({code:code,src:code.image,isPdf:code.imageType==="pdf"});
+  });
+  Promise.all(drawPromises).then(function(results){
+    var drawMap={};
+    results.forEach(function(r){drawMap[r.code.id]=r;});
+    var html2="<!DOCTYPE html><html><head><meta charset='UTF-8'/><title>"+comp.name+" — Parts & Drawings</title><style>";
+    html2+="body{font-family:Arial,sans-serif;margin:0;padding:0;color:#222;}";
+    html2+="@page{size:A4 portrait;margin:15mm;}";
+    html2+=".cover{text-align:center;padding:60px 20px;border-bottom:3px solid #1565c0;margin-bottom:30px;}";
+    html2+=".cover h1{font-size:28px;color:#1565c0;margin:0 0 8px;}";
+    html2+=".cover h2{font-size:16px;color:#555;margin:0;font-weight:400;}";
+    html2+=".cover .date{font-size:12px;color:#888;margin-top:12px;}";
+    html2+=".part-section{page-break-inside:avoid;margin-bottom:24px;border:1px solid #e0e0e0;border-radius:8px;overflow:hidden;}";
+    html2+=".part-hdr{background:#1565c0;color:#fff;padding:10px 14px;display:flex;align-items:center;gap:10px;}";
+    html2+=".part-num{background:rgba(255,255,255,0.25);border-radius:6px;padding:2px 8px;font-size:12px;font-weight:700;}";
+    html2+=".part-name{font-size:15px;font-weight:700;}";
+    html2+=".dims-table{width:100%;border-collapse:collapse;}";
+    html2+=".dims-table th{background:#e3f2fd;color:#1565c0;font-size:11px;text-transform:uppercase;padding:7px 10px;text-align:left;border-bottom:2px solid #90caf9;}";
+    html2+=".dims-table td{padding:7px 10px;font-size:12px;border-bottom:1px solid #f0f0f0;}";
+    html2+=".dims-table tr:last-child td{border-bottom:none;}";
+    html2+=".drg-section{padding:10px 14px;border-top:1px solid #eee;text-align:center;}";
+    html2+=".drg-section img{max-width:100%;max-height:280px;border-radius:6px;border:1px solid #e0e0e0;}";
+    html2+=".drg-section .no-drg{color:#aaa;font-size:12px;font-style:italic;padding:10px 0;}";
+    html2+=".no-dims{color:#aaa;font-size:12px;font-style:italic;padding:10px 14px;}";
+    html2+="</style></head><body>";
+    html2+="<div class='cover'>";
+    html2+="<h1>"+comp.name+"</h1>";
+    html2+="<h2>Parts List &amp; Reference Drawings</h2>";
+    html2+="<div class='date'>Generated: "+new Date().toLocaleDateString("en-IN",{day:"2-digit",month:"short",year:"numeric"})+" &nbsp;|&nbsp; Gagan Hydraulics</div>";
+    html2+="</div>";
+    comp.codes.forEach(function(code,i){
+      html2+="<div class='part-section'>";
+      html2+="<div class='part-hdr'><span class='part-num'>"+(i+1).toString().padStart(2,"0")+"</span><span class='part-name'>"+code.codeNo+"</span>"+(code.description?"<span style='font-size:12px;opacity:0.8;margin-left:4px;'>"+code.description+"</span>":"")+"</div>";
+      if(code.dimensions&&code.dimensions.length){
+        html2+="<table class='dims-table'><thead><tr><th>Dimension</th><th>Standard Value</th><th>Tolerance</th><th>Unit</th></tr></thead><tbody>";
+        code.dimensions.forEach(function(d){
+          html2+="<tr><td><strong>"+d.name+"</strong></td><td>"+(d.standardValue||"—")+"</td><td>"+(d.tolerance||"—")+"</td><td>"+(d.unit||"mm")+"</td></tr>";
+        });
+        html2+="</tbody></table>";
+      } else {
+        html2+="<div class='no-dims'>No dimensions defined.</div>";
+      }
+      var dInfo=drawMap[code.id];
+      html2+="<div class='drg-section'>";
+      if(dInfo&&dInfo.src&&!dInfo.isPdf){
+        html2+="<img src='"+dInfo.src+"' alt='Drawing'/>";
+      } else if(dInfo&&dInfo.src&&dInfo.isPdf){
+        html2+="<div class='no-drg'>📄 PDF drawing attached — view in app</div>";
+      } else {
+        html2+="<div class='no-drg'>No drawing uploaded</div>";
+      }
+      html2+="</div></div>";
+    });
+    html2+="</body></html>";
+    var w=window.open("","_blank","width=800,height=900");
+    w.document.write(html2);
+    w.document.close();
+    w.onload=function(){w.print();};
+  });
+}
+
 function drawMaster() {
   var pg=dv("pg"); var hdr=dv("ph"); var hr=dv("phr");
   var left=dv(""); var lg_=mk("img");lg_.src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAWIAAAGECAYAAAAMQSrlAAABCGlDQ1BJQ0MgUHJvZmlsZQAAeJxjYGA8wQAELAYMDLl5JUVB7k4KEZFRCuwPGBiBEAwSk4sLGHADoKpv1yBqL+viUYcLcKakFicD6Q9ArFIEtBxopAiQLZIOYWuA2EkQtg2IXV5SUAJkB4DYRSFBzkB2CpCtkY7ETkJiJxcUgdT3ANk2uTmlyQh3M/Ck5oUGA2kOIJZhKGYIYnBncAL5H6IkfxEDg8VXBgbmCQixpJkMDNtbGRgkbiHEVBYwMPC3MDBsO48QQ4RJQWJRIliIBYiZ0tIYGD4tZ2DgjWRgEL7AwMAVDQsIHG5TALvNnSEfCNMZchhSgSKeDHkMyQx6QJYRgwGDIYMZAKbWPz9HbOBQAAAQLklEQVR4nO3d23LjthIFUPhU/v+XfR4mzsi2LAsiwd4A1nqZXKpiiWhsthqU8/b+/t54igv12VtzTeAU/6t+AZMQON+5JnCON0EMUOyf6hdAnLebv9b1wgV0xNx6u/P3X/8ZcDIdMa39HrYf/16HDAPoiH+3evj0dLy6YzjXW2s64p29Gqq6YziZIN7PWV2tQIaTGE3sZcRowbgCDtIR72F0WOqO4QAd8WMrBMuVHavH3eAFgnhdlaEojOF3/+0TQbymhCDUHcOTBPFaEsMv7fVAHId1a0gPO4d58ICOeH7pIXwrsWOHcoJ4XjOH2qyvG87yaQ8I4p8lf4xeIchmvpHAqQTxXFYMr9XeD3RzWDeH1cPKYR5b0xHnWz2Eb63Y8cOvBHGunUNp1/fNHr7VtyC+r/ojsiDa+0bEZgRxFuHznevB8hzWZRA2jznMY2k64npC+HmuFUvSEdcRKq/RHbMcHfF3V2xwIXyceTozuluzgvhawuN8rifTM5q4hrAYy7iCqemIxxPC1/GJgykJ4nGEQh3XnakYTZxPCGQwriDNj9mgI/7s6KYVwnmsCfF0xOew2bPpjommIz5OCM/DWhFJR/w6m3pOumPiCOJ+AngNApkrPcwNo4m/ntmQQng91pRyOuLn2Kxr0x1TSkf8OyG8D1/CoYQg/plNuS/rzqUE8X02Im7EXEYQf2bz8ZV64Khfa0gQ/2XD8RM3aIYSxPA8gcwQghj6CWNOJYjhNbpjTiOI4RhhzGGCmHt8w6yP7pifPFUXvuLMrfc7fy1gnuer0rxER0xrf4Ljp/B49O+4z82LLoKYZ0NWIPcxruBpgnhfrwarMO4jjPmVIN7PGZ2tMO6jO+YhQbyXMwPUqKKfQN7L02stiPcwMjQFcj9hzCeCeH1XhaRA7qM75j+CeF1VwSiM+whjfKFjQQlB6MsgfXwRZHM64rWkbeS015POuGIdXesoiNeQPJ9Nfm2phPFmBPH8Zgm5WV5nCt3xRsyI5zVjsJkd9zM/nk93feuI57PCR/0V3sPV3LwWJojnslp4rfZ+RjOuWJQgnsPKHeTK720UYbwYQZxvl5ASyH2E8UIEca5dg2nH9/wqo4pFeGoijyDydEUvT1bkeKlmdcRZbKTPXI8+OuRJCeIMu44hnuHa9BPGkxHEtYTM81ynPrrjiQjiOoKlnxtXP2E8AYd11xMkxznM6+Mw7xov16OO+Fo2wrlczz5uXKF0xNcQGOPojvvojgPpiMdT8Ndwnfu4cQXREY8jGK6nO+6jOw4hiM+nqOsJ5D4C+bhDtWY0cS6FnMV69HHjKqIjPocNn0t33Ed3XEBHfJyCnYMvg/TxzbwLCeLX2dhzsmZ9hPEFjCb62cjzM67oY1wxmI64j0Jci/Xs48Z13+HroiN+jg27Lt1xH93xADrixxLnwCsFRtKBUOJaJ0tau+kJ4p+lbcqVCz/pfaWte7qktZuW0cR3iRtxh2JP+shrXNEnae2mpCP+LK2QVu6Cf5L0fo0r+iSt3VR0xH+kbbbdCzqtw3pv1uRZaWs32il1sXtHnNjx2PB/JX0iSKyVZCnrNoWdgzhtUyWFTpqk65JWN8nU9JN2DOLEzkax/i7pGiXWUDKB/IudZsSJG0dx9kmbP5od90lbvxi7dMRpC69DOCbp+umO+6Ws3VGnvY/Vgzhxk6xShAmSrmVanaVLupmWWz2Ikyi8MZKua+KNP13K2pUSxNdQbOMlXWOB3CfpZlpi5SBO2AjbF9jF0q53Qg3OJGntLrXTUxNX2ragQiSdzvu9FX2S1u6RU9dz5Y64ig2XI2kt0oMlTdLaDacjPs9WhTORpA5Ld8xdOuJz2Fj5ktbIYR6frBrEVxV52uEQj6WtlzCmtbZuEI+WtqHpk7R2uuP5nF4/grhf0ibmdWk3U4G8MUH8vLSNyznS1lQYb0gQPydts3KutJus7ngzgvh3SRuUsdLWWhhvYsXniM8o3rQNyXWSnjtuzbPHaYasg474OwVPa3l1YFyxMEH8Wdrmo1ba7Lg1YbwkQfxX2oYjR1pt6I4XI4hhXsJ4EasFscJkN7rj6wz7ZLRaEMOuBPLEBDGsRRhPSBDDenTHkxHEsC5hPAlBDGvTHU9gpSBWbPAz++OYoc+SrxTEwGPCOJQgBigmiAGKCWKAYqsEsdkXMMrwX/q0ShADTEsQAxQTxADFBDFAsRWC2EEdMMol/3eWFYIYYGqCGKCYIAYoJogBis0exA7qgFEuOahrbf4gBpieIAYoJogBigligGKCGKDYzEHsiQlglMuemGht7iAGWIIgBigmiAGKCWKAYrMGsYM6YJRLD+pamzeIAZYhiAGKCWKAYoIY4K/L58OtzRnEDuqApcwYxABLEcQAxQQxQDFBDFDsn+oX0MlBHRxjDwXSEQP8UfLoWmuCGKCcIAYoJogBigligGIzBbHTXmBJMwUxwChlT0y0JogBygligGKCGKDYLEHsoA7WVTqfDfj50wQxsKa3L39uabZf+sMfWxftRKxTn6/Xa5tPwjpigGKCGKDYDEG8zccTYE8zBDHAKBFzfEEMUEwQAxQTxADF0oPYQR2wvPQgBhgl4qCuNUEMUE4QAxQTxADFBDFAseQg9sQEMErMQV1r2UEMsAVBDFBMEAMUE8QAxVKD2EEdsI3UIAYYJeqJidYEMUA5QQxQTBADFEsMYgd1wFYSgxhgK4IY2EncExOtCWKAcoIYoFhaEDuoA7aTFsQA2xHEwC4iD+paE8QA5QQxQDFBDFAsKYg9MQFsKSmIAUaJPahrTRADlBPEAMUEMUCxlCB2UAdsKyWIAUaJPqhrrbV/ql8AL3tvfwrs48+RP+eR3372Va8z0Y7vmRcI4jm9//BnhWd+9k+vc4eQShu77XDNp2M0AVAsIYjTOgaASyUEMcAoU4xiBDFAMUEMUEwQAxQTxMCqppgPt1YfxJ6YALZXHcQA2xPEAMUEMUCxyiA2HwZoOmKAcoIYWNE0j661JogBygligGJVQeygDuBfOmKAYoIYWM1UB3WtCWKAcoIYoJggBihWEcSemAC4oSMGVjLdQV1rghignCAGKCaIAYpdHcQO6oBRppwPt6YjBigniAGKCWKAYoIYoNiVQeygDhhl2oO61nTEAOUEMUAxQQxQTBADFBPEAMWuCmJPTACjTP3ERGs6YoByghigmCAGKCaIgZlNPx9u7ZogdlAH8ICOGKCYIAYoJogBigli2McSB1sr+mfwf99BHdRbNYCXeV86YljbMmG1stEdMVBDAE9kdEesGOB69t1krhhNKAq4xluz36Z01YxYccBYu+2xpd7vlTPijwvnSQo4z1KBtKuKpyYUDhxnDLGQqsfXEotIp84s0vYOB1U/vpY2rvh4HQqdDym12Zq6XFbKFzrSCixp81EnpQ4SP0FyouqO+JbumBQpNdia+rtnuWuSFMQfBDJVUmquNfW2lZTRxD1phZi0STnXe8ta37TaZ7DEjviW7pjRUmqrNXW1reSO+FZagSZtXl6T1AU7jNvcLEHcWl6xJm1k+iStW1JNz2DJ65U+mrgncVyxZHEsKKVmWlMz3JipI/4qqZB1x9nS1iepdgkwY0d8K7E7bs1GS5JSG62pC34wc0d8K3F+TC1d8NyS1m642Tvir95azgLqjmukrP8H69/n0fotey1X6Yhv6Y73lXSt0+pwBknrd6nVOuJbuuN9pKzzB+vcJ239LrdiR3wrrSvZvuAGSLqmafU2g6T1K7NyR3xLd7yelPVszVq+Imn9yu0SxK151G0VKev3wfr1eXX9lr7Oq48m7kn7+JgWLMnSrlVSHc0gbf1i7NQRf2VcMY+UdfpgnfqkrV+cHTviW7rjfEnXJK1eZpC0frF27ohvJc2Pdcd/JKzFh93X4hVJ6xdPEH9mXFEv5fp/2O36H5W2flPYfTRxT9rHz50KO+m9ptXBDEat3/LrIIh/lrT4SQE1gl/QM7e09ZuO0cRjabPj1QIi4breWu36XiFtDackiJ+TEsjVP39lQriPWjyRIO6TdJjHOQRwH/U/gCDul9Idc4wA7ldR81usk8O6121RIIuydn0cxg0miI+xoefikbR+AvgCRhPHGVXkE7791POFBPF5BHImIdxH/RYwmjifjZ/BGKKfEC4iiMcQArVc+36JIbzNOhpNjGVcca1tNu6J1GYAQXwNXwQZSwD3U49BjCauY1wxhmvaTwiHOdoR7/o7c48wrjiPuuuj5kKdNZoQyP2MK16nzvqos3BHgvje4grkPrrjPuqq36y1tdVaj5oRz7r4VcyPf+f69PH7ISYy8qkJ3XE/HfJ36qeP2pnQFU9NKIx+wucP16GPvTapq54j1h3327k7Vid9dqyRpbzaEb+68OZW/XYKJbPyfivup+1qoOoLHSsWz0g7BNTq7+9smpqFVH7F2bii34rjCuvfZ6W1518JX3FWWP1WCK8duvyz2SuLSgji1nzMesXMQTbr665kfyzslSAeWRCKrd9MoTbzzaPKbk3KlvWR+GswzY77zTA7tp59kteSkyUG8QeB3C/xFwlZvz5p68cFUmbEjyjMPikf/1Nex0zU+qaSO+JbuuN+leMK69RHAG9uho74loLtd2Uo6oL7qem/tq2d3o44oWh0x/1Gd8fWol/CXiLEbB3xrd0e6znDiMAUwn3ULd/MHMQfFHafM8cHQriPOuWuFYL4gyLvcyREzYL7aBZ4aJanJp5lftynd3bsuvYTwM/ZurZW6ohvKf4+z3S4W2+UF+iCeVpPEM9WVDZCv3thawzRT93RZbXRxD3GFX1cp9cJYF6y6mjiHpuEUXz64pCdgrg1G4bzqafjtv8U9mwQr1Zsq70fruemzml264hv2US8QgBzup2DuDWbij5qhSF2eGriGZ6s4BEBzFC7d8Rf6ZD5Sj0w3DNBvGMh7vie+cxN+Ro+hTYd8SM24r6sO5cSxL+zKffh5ksJh3XPcZi3NuFLKR1xHx3Teqwn5QTxa2ze+bmpEuO3IFaoP7OR52XdMhj1/UtHfJxNPQ83TyI5rDuHw7xswpdoOuJz6bjyWA/iCeIxbP56bopM49FoQhEfY1xRQ93Owb64oSMeT2d2HdeZKQni6wiJcdzsmJogvpbAOJ/ryfQEcQ3hcZybGsv46bBOgY/nMO81anN+av4LHXE9wfI814olCeIMPmb/zvVhWb7inMW44jsBvBa1fYeOOJPw8SmBjdzriBV/hl27Y/XHdnTE+XYKpp3eK/zHjHgOq3fHApit6YjnsuLcdLX3A90E8ZxWCK8Vbyo8tuonusOMJuY167hC+MIXXztim2Q+M63ZTK8VLqMjXkN6dyyA4QEz4rUkzl3TXg/EEcRrSgi/xJsCdVI/rUUwmlhX1bhC+EKn247YBlrTleuqhuAFOuI9jO6OBTAcYEa8lxGBKYThIB3xfs7qjgUwnEQQ7+vVQBbA9PLExC8+RhM217561l6dwAA6Ylr7vTsWwDCQwzpu3fsShhCGwXTE3CN84UI6YoBi/2u6H2AcT0w8QUcMUOz/4PlO0O+X9ykAAAAASUVORK5CYII=";lg_.className="logo";
@@ -646,9 +800,13 @@ function drawMaster() {
     var xb=mk("button","xi"); xb.textContent="✕";
     xb.onclick=(function(cid,cname){return function(){confirmDel('Delete "'+cname+'"?',function(){ss({master:S.master.filter(function(c){return c.id!==cid})})});}})(comp.id,comp.name);
     ap(top,info,xb);
-    var mb=mk("button"); mb.textContent="MANAGE →"; mb.style.cssText="background:#e3f2fd;border:1px solid #90caf9;color:#1565c0;padding:10px;border-radius:8px;cursor:pointer;font-size:12px;font-weight:700;font-family:Arial,sans-serif;width:100%;min-height:40px;margin-top:10px";
+    var btnRow2=dv("fl gap8"); btnRow2.style.cssText="margin-top:10px";
+    var mb=mk("button"); mb.textContent="MANAGE →"; mb.style.cssText="background:#e3f2fd;border:1px solid #90caf9;color:#1565c0;padding:10px;border-radius:8px;cursor:pointer;font-size:12px;font-weight:700;font-family:Arial,sans-serif;flex:1;min-height:40px";
     mb.onclick=(function(c){return function(){ss({screen:"compDetail",comp:c});}})(comp);
-    ap(card,top,mb); grid.appendChild(card)
+    var epBtn=mk("button"); epBtn.textContent="📄 PDF"; epBtn.style.cssText="background:#fff8e1;border:1px solid #ffe082;color:#e65100;padding:10px;border-radius:8px;cursor:pointer;font-size:12px;font-weight:700;font-family:Arial,sans-serif;min-height:40px;white-space:nowrap";
+    epBtn.onclick=(function(c){return function(e){e.stopPropagation();exportModelPDF(c);}})(comp);
+    ap(btnRow2,mb,epBtn);
+    ap(card,top,btnRow2); grid.appendChild(card)
   });
   pg.appendChild(grid); return pg;
 }
