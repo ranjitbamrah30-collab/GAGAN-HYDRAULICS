@@ -176,6 +176,7 @@ function syncUp(key, data) {
 }
 
 var DEFAULT_PART_NAMES=["Body Size","Cylinder Tube","Cylinder Rod","Slide Rod","Front Side","Rear Side","Top Plate","Bottom Plate","Manifold Block","Pump Bracket","Motor Bracket","Accessories"];
+var DEFAULT_DIM_MAP={"Body Size": [{"name": "Width", "unit": "mm"}, {"name": "Length", "unit": "mm"}, {"name": "Height", "unit": "mm"}, {"name": "Plate Thickness", "unit": "mm"}, {"name": "Coolant Tank", "unit": "mm"}], "Cylinder Tube": [{"name": "Bore Diameter", "unit": "mm"}, {"name": "Outer Diameter", "unit": "mm"}, {"name": "Wall Thickness", "unit": "mm"}, {"name": "Length", "unit": "mm"}], "Cylinder Rod": [{"name": "Rod Diameter", "unit": "mm"}, {"name": "Length", "unit": "mm"}, {"name": "Thread Size", "unit": "mm"}], "Slide Rod": [{"name": "Diameter", "unit": "mm"}, {"name": "Length", "unit": "mm"}], "Front Side": [{"name": "Width", "unit": "mm"}, {"name": "Height", "unit": "mm"}, {"name": "Thickness", "unit": "mm"}], "Rear Side": [{"name": "Width", "unit": "mm"}, {"name": "Height", "unit": "mm"}, {"name": "Thickness", "unit": "mm"}], "Top Plate": [{"name": "Width", "unit": "mm"}, {"name": "Length", "unit": "mm"}, {"name": "Thickness", "unit": "mm"}], "Bottom Plate": [{"name": "Width", "unit": "mm"}, {"name": "Length", "unit": "mm"}, {"name": "Thickness", "unit": "mm"}], "Manifold Block": [{"name": "Width", "unit": "mm"}, {"name": "Length", "unit": "mm"}, {"name": "Height", "unit": "mm"}], "Pump Bracket": [{"name": "Width", "unit": "mm"}, {"name": "Length", "unit": "mm"}, {"name": "Thickness", "unit": "mm"}], "Motor Bracket": [{"name": "Width", "unit": "mm"}, {"name": "Length", "unit": "mm"}, {"name": "Thickness", "unit": "mm"}], "Accessories": [{"name": "Description", "unit": "N/A"}]};
 var S = {
   master: lsGet("gh_m", DM),
   orders: lsGet("gh_o", []),
@@ -652,49 +653,103 @@ function drawMaster() {
   pg.appendChild(grid); return pg;
 }
 function showEditDefaultParts(){
-  var parts=(S.dparts||lsGet("gh_dp",null)||DEFAULT_PART_NAMES).slice();
+  // dparts = [{name:"Body Size", dims:[{name:"Width",unit:"mm",stdVal:"",tol:""},...]}]
+  function normalizeParts(raw){
+    if(!raw) return DEFAULT_PART_NAMES.map(function(n){return {name:n,dims:(DEFAULT_DIM_MAP[n]||[]).map(function(d){return {name:d.name,unit:d.unit,stdVal:"",tol:""};})};});
+    if(typeof raw[0]==="string") return raw.map(function(n){return {name:n,dims:(DEFAULT_DIM_MAP[n]||[]).map(function(d){return {name:d.name,unit:d.unit,stdVal:"",tol:""};})};});
+    return raw;
+  }
+  var parts=normalizeParts(S.dparts||lsGet("gh_dp",null));
+  var selectedPart=0;
   var c=dv("");
-  var lbl=mk("label"); lbl.textContent="Default Parts List"; lbl.style.cssText="font-size:13px;font-weight:700;color:#555;display:block;margin-bottom:8px";
-  var sub=dv("","These parts are pre-loaded when creating a new Machine Model"); sub.style.cssText="font-size:11px;color:#888;margin-bottom:10px";
-  c.appendChild(lbl); c.appendChild(sub);
-  var list=dv(""); list.style.cssText="display:flex;flex-direction:column;gap:4px;margin-bottom:10px";
-  function renderList(){
-    list.innerHTML="";
+
+  // Left panel: parts list | Right panel: dims for selected part
+  var wrap=dv(""); wrap.style.cssText="display:flex;gap:10px;min-height:320px";
+  var leftPanel=dv(""); leftPanel.style.cssText="width:140px;flex-shrink:0;display:flex;flex-direction:column;gap:4px;overflow-y:auto;max-height:340px";
+  var rightPanel=dv(""); rightPanel.style.cssText="flex:1;overflow-y:auto;max-height:340px";
+
+  function renderLeft(){
+    leftPanel.innerHTML="";
     parts.forEach(function(part,i){
-      var row=dv(""); row.style.cssText="display:flex;align-items:center;gap:6px;padding:5px 8px;background:#f5f7ff;border-radius:8px";
-      var drag=dv("","⋮⋮"); drag.style.cssText="color:#bbb;font-size:14px;flex-shrink:0";
-      var inp=mk("input"); inp.type="text"; inp.value=part;
-      inp.style.cssText="flex:1;border:1px solid #e0e0e0;border-radius:6px;padding:5px 8px;font-size:13px;font-family:Arial,sans-serif";
-      inp.oninput=function(){parts[i]=inp.value;};
-      var del=mk("button"); del.textContent="✕"; del.style.cssText="background:none;border:none;color:#c62828;font-size:16px;cursor:pointer;padding:2px 4px;flex-shrink:0";
-      del.onclick=function(){parts.splice(i,1);renderList();};
-      ap(row,drag,inp,del); list.appendChild(row);
+      var btn=dv(""); btn.textContent=part.name||"(unnamed)";
+      btn.style.cssText="padding:7px 8px;border-radius:8px;cursor:pointer;font-size:12px;font-weight:700;background:"+(i===selectedPart?"#1565c0":"#f0f4ff")+";color:"+(i===selectedPart?"#fff":"#333");
+      btn.onclick=function(){selectedPart=i;renderLeft();renderRight();};
+      leftPanel.appendChild(btn);
+    });
+    // Add part button
+    var addBtn=dv(""); addBtn.textContent="＋ Part"; addBtn.style.cssText="padding:6px 8px;border-radius:8px;cursor:pointer;font-size:12px;font-weight:700;background:#e3f2fd;color:#1565c0;text-align:center;border:1px dashed #90caf9;margin-top:4px";
+    addBtn.onclick=function(){parts.push({name:"New Part",dims:[]});selectedPart=parts.length-1;renderLeft();renderRight();};
+    leftPanel.appendChild(addBtn);
+  }
+
+  function renderRight(){
+    rightPanel.innerHTML="";
+    if(!parts.length) return;
+    var part=parts[selectedPart];
+    // Part name row
+    var nameRow=dv("fl ai gap8"); nameRow.style.marginBottom="10px";
+    var nameInp=mk("input"); nameInp.type="text"; nameInp.value=part.name;
+    nameInp.style.cssText="flex:1;border:1px solid #e0e0e0;border-radius:8px;padding:7px 10px;font-size:14px;font-weight:700;font-family:Arial,sans-serif";
+    nameInp.oninput=function(){part.name=nameInp.value;renderLeft();};
+    var delPart=mk("button"); delPart.textContent="🗑"; delPart.style.cssText="background:#ffebee;border:1px solid #ef9a9a;color:#c62828;border-radius:8px;padding:6px 10px;cursor:pointer;font-size:14px;font-family:Arial,sans-serif";
+    delPart.onclick=function(){if(confirm("Delete part \""+part.name+"\"?")){{parts.splice(selectedPart,1);selectedPart=Math.max(0,selectedPart-1);renderLeft();renderRight();}}};
+    ap(nameRow,nameInp,delPart); rightPanel.appendChild(nameRow);
+    // Dims header
+    var dimHdr=dv("fl jsb ai"); dimHdr.style.marginBottom="6px";
+    var dimTitle=dv("","📐 Default Dimensions"); dimTitle.style.cssText="font-size:12px;font-weight:700;color:#1565c0;text-transform:uppercase";
+    var addDim=bt("bp sm","+ Dim",function(){
+      part.dims.push({name:"",unit:"mm",stdVal:"",tol:""});
+      renderRight();
+    });
+    ap(dimHdr,dimTitle,addDim); rightPanel.appendChild(dimHdr);
+    if(!part.dims.length){
+      var nd=dv("","No default dimensions. Tap + Dim to add."); nd.style.cssText="color:#aaa;font-size:12px;padding:10px 0";
+      rightPanel.appendChild(nd);
+    }
+    part.dims.forEach(function(dim,di){
+      var row=dv(""); row.style.cssText="background:#f5f7ff;border-radius:8px;padding:7px 8px;margin-bottom:5px;display:flex;flex-direction:column;gap:5px";
+      var r1=dv("fl ai gap6");
+      var nInp=mk("input"); nInp.type="text"; nInp.value=dim.name; nInp.placeholder="Dim name";
+      nInp.style.cssText="flex:1;border:1px solid #e0e0e0;border-radius:6px;padding:5px 7px;font-size:12px;font-family:Arial,sans-serif";
+      nInp.oninput=function(){dim.name=nInp.value;};
+      // Unit selector
+      var uSel=mk("select"); uSel.style.cssText="border:1px solid #e0e0e0;border-radius:6px;padding:5px;font-size:12px;font-family:Arial,sans-serif;background:#fff";
+      ["mm","inch","°","N/A"].forEach(function(u){var o=mk("option");o.value=u;o.textContent=u;if(u===dim.unit)o.selected=true;uSel.appendChild(o);});
+      uSel.onchange=function(){dim.unit=uSel.value;};
+      var dBtn=mk("button"); dBtn.textContent="✕"; dBtn.style.cssText="background:none;border:none;color:#c62828;font-size:14px;cursor:pointer;padding:2px 4px;font-family:Arial,sans-serif";
+      dBtn.onclick=function(){part.dims.splice(di,1);renderRight();};
+      ap(r1,nInp,uSel,dBtn);
+      var r2=dv("fl ai gap6");
+      var svInp=mk("input"); svInp.type="text"; svInp.value=dim.stdVal||""; svInp.placeholder="Std value (optional)";
+      svInp.style.cssText="flex:1;border:1px solid #e0e0e0;border-radius:6px;padding:5px 7px;font-size:12px;font-family:Arial,sans-serif";
+      svInp.oninput=function(){dim.stdVal=svInp.value;};
+      var tolInp=mk("input"); tolInp.type="text"; tolInp.value=dim.tol||""; tolInp.placeholder="Tolerance ±";
+      tolInp.style.cssText="flex:1;border:1px solid #e0e0e0;border-radius:6px;padding:5px 7px;font-size:12px;font-family:Arial,sans-serif";
+      tolInp.oninput=function(){dim.tol=tolInp.value;};
+      ap(r2,svInp,tolInp);
+      ap(row,r1,r2); rightPanel.appendChild(row);
     });
   }
-  renderList();
-  c.appendChild(list);
-  // Add new part button
-  var addRow=dv("fl ai gap8");
-  var newInp=mk("input"); newInp.type="text"; newInp.placeholder="New part name...";
-  newInp.style.cssText="flex:1;border:1px solid #e0e0e0;border-radius:6px;padding:7px 8px;font-size:13px;font-family:Arial,sans-serif";
-  var addBtn=bt("bp sm","+ Add",function(){
-    var v=newInp.value.trim(); if(!v)return;
-    parts.push(v); newInp.value=""; renderList();
-  });
-  newInp.onkeydown=function(e){if(e.key==="Enter"){addBtn.onclick();}};
-  ap(addRow,newInp,addBtn); c.appendChild(addRow);
-  // Save button
-  c.appendChild(bt("bp fw mt14","💾 Save Default Parts",function(){
-    var clean=parts.filter(function(p){return p.trim();});
+
+  renderLeft(); renderRight();
+  ap(wrap,leftPanel,rightPanel); c.appendChild(wrap);
+  c.appendChild(bt("bp fw mt14","💾 Save Default Parts & Dimensions",function(){
+    var clean=parts.filter(function(p){return (p.name||"").trim();});
+    clean.forEach(function(p){p.dims=p.dims.filter(function(d){return (d.name||"").trim();});});
     ss({dparts:clean}); closeModal();
   }));
-  modal("⚙ Edit Default Parts List",c);
+  modal("⚙ Edit Default Parts & Dimensions",c);
 }
 
 function showAddComp(){
   var name="";
-  var DEFAULT_PARTS=S.dparts||lsGet("gh_dp",null)||DEFAULT_PART_NAMES;
-  var selected=DEFAULT_PARTS.slice(); // all selected by default
+  // Normalize dparts to array of objects
+  var rawDparts=S.dparts||lsGet("gh_dp",null);
+  var DEFAULT_PARTS;
+  if(rawDparts&&typeof rawDparts[0]==="object") DEFAULT_PARTS=rawDparts;
+  else if(rawDparts&&typeof rawDparts[0]==="string") DEFAULT_PARTS=rawDparts.map(function(n){return {name:n,dims:[]};});
+  else DEFAULT_PARTS=DEFAULT_PART_NAMES.map(function(n){return {name:n,dims:(DEFAULT_DIM_MAP[n]||[]).map(function(d){return {name:d.name,unit:d.unit,stdVal:"",tol:""};})};});
+  var selected=DEFAULT_PARTS.map(function(p){return p.name;}); // all selected by default (store names)
   var c=dv("");
   c.appendChild(fg("Machine Model Name *",ip("e.g. 750 CO, VWR 1000","",function(v){name=v})));
   // Parts list
@@ -702,13 +757,18 @@ function showAddComp(){
   var psub=dv("","Uncheck parts not needed for this model"); psub.style.cssText="font-size:11px;color:#888;margin-bottom:8px";
   c.appendChild(plabel); c.appendChild(psub);
   var pgrid=dv(""); pgrid.style.cssText="display:flex;flex-direction:column;gap:4px;max-height:280px;overflow-y:auto";
-  DEFAULT_PARTS.forEach(function(part){
+  DEFAULT_PARTS.forEach(function(partObj){
+    var partName=typeof partObj==="string"?partObj:partObj.name;
+    var dimCount=typeof partObj==="object"&&partObj.dims?partObj.dims.length:0;
     var row=dv(""); row.style.cssText="display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:8px;background:#f5f7ff;cursor:pointer";
     var cb=mk("input"); cb.type="checkbox"; cb.checked=true;
     cb.style.cssText="width:16px;height:16px;accent-color:#1565c0;cursor:pointer;flex-shrink:0";
-    var lbl=dv("",part); lbl.style.cssText="font-size:13px;font-weight:600;color:#333";
-    row.appendChild(cb); row.appendChild(lbl);
-    cb.onchange=function(){if(cb.checked){if(selected.indexOf(part)===-1)selected.push(part);}else{selected=selected.filter(function(p){return p!==part;});}};
+    var info=dv("");
+    var lbl=dv("",partName); lbl.style.cssText="font-size:13px;font-weight:600;color:#333";
+    var dsub=dv("",dimCount+" default dims"); dsub.style.cssText="font-size:10px;color:#888;margin-top:1px";
+    ap(info,lbl,dsub);
+    row.appendChild(cb); row.appendChild(info);
+    cb.onchange=function(){if(cb.checked){if(selected.indexOf(partName)===-1)selected.push(partName);}else{selected=selected.filter(function(p){return p!==partName;});}};
     row.onclick=function(){cb.checked=!cb.checked;cb.onchange();};
     cb.onclick=function(e){e.stopPropagation();};
     pgrid.appendChild(row);
@@ -716,7 +776,21 @@ function showAddComp(){
   c.appendChild(pgrid);
   c.appendChild(bt("bp fw mt14","Add Machine Model",function(){
     if(!name.trim())return;
-    var codes=selected.map(function(p){return {id:gid(),codeNo:p,description:"",dimensions:[]};});
+    // Build codes with default dimensions from dparts template
+    var dpartsTemplate=S.dparts||lsGet("gh_dp",null);
+    var codes=selected.map(function(p){
+      // p could be a string (old format) or object (new format)
+      var partName=typeof p==="string"?p:p.name;
+      var defaultDims=[];
+      // Find dims from dparts template
+      if(dpartsTemplate&&typeof dpartsTemplate[0]==="object"){
+        var tmpl=dpartsTemplate.filter(function(t){return t.name===partName;})[0];
+        if(tmpl&&tmpl.dims) defaultDims=tmpl.dims.map(function(d){return {id:gid(),name:d.name,standardValue:d.stdVal||"",tolerance:d.tol||"",unit:d.unit||"mm"};});
+      } else if(window.DEFAULT_DIM_MAP&&DEFAULT_DIM_MAP[partName]){
+        defaultDims=DEFAULT_DIM_MAP[partName].map(function(d){return {id:gid(),name:d.name,standardValue:"",tolerance:"",unit:d.unit||"mm"};});
+      }
+      return {id:gid(),codeNo:partName,description:"",dimensions:defaultDims};
+    });
     ss({master:S.master.concat([{id:gid(),name:name.trim(),codes:codes}])});
     closeModal();
   }));
