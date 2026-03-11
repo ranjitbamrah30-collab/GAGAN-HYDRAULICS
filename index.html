@@ -728,8 +728,9 @@ function exportModelPDF(comp){
     html2+=".dims-table th{background:#e3f2fd;color:#1565c0;font-size:11px;text-transform:uppercase;padding:7px 10px;text-align:left;border-bottom:2px solid #90caf9;}";
     html2+=".dims-table td{padding:7px 10px;font-size:12px;border-bottom:1px solid #f0f0f0;}";
     html2+=".dims-table tr:last-child td{border-bottom:none;}";
-    html2+=".drg-section{padding:10px 14px;border-top:1px solid #eee;text-align:center;}";
-    html2+=".drg-section img{max-width:100%;max-height:280px;border-radius:6px;border:1px solid #e0e0e0;}";
+    html2+=".drg-section{padding:14px;border-top:2px solid #e3f2fd;text-align:center;background:#fafcff;}";
+    html2+=".drg-section .drg-label{font-size:10px;font-weight:700;color:#1565c0;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;}";
+    html2+=".drg-section img{max-width:100%;max-height:340px;border-radius:8px;border:1px solid #e0e0e0;box-shadow:0 2px 8px rgba(0,0,0,0.08);}";
     html2+=".drg-section .no-drg{color:#aaa;font-size:12px;font-style:italic;padding:10px 0;}";
     html2+=".no-dims{color:#aaa;font-size:12px;font-style:italic;padding:10px 14px;}";
     html2+="</style></head><body>";
@@ -752,20 +753,31 @@ function exportModelPDF(comp){
       }
       var dInfo=drawMap[code.id];
       html2+="<div class='drg-section'>";
+      html2+="<div class='drg-label'>📐 Reference Drawing</div>";
       if(dInfo&&dInfo.src&&!dInfo.isPdf){
-        html2+="<img src='"+dInfo.src+"' alt='Drawing'/>";
+        html2+="<img src='"+dInfo.src+"' alt='"+code.codeNo+" Drawing'/>";
       } else if(dInfo&&dInfo.src&&dInfo.isPdf){
-        html2+="<div class='no-drg'>📄 PDF drawing attached — view in app</div>";
+        html2+="<div class='no-drg' style='background:#fff8e1;border:1px solid #ffe082;border-radius:6px;padding:10px;color:#e65100;font-size:12px;'>📄 PDF Drawing — Please view reference drawing in the app (PDF cannot be embedded in print)</div>";
       } else {
         html2+="<div class='no-drg'>No drawing uploaded</div>";
       }
       html2+="</div></div>";
     });
     html2+="</body></html>";
-    var w=window.open("","_blank","width=800,height=900");
+    var w=window.open("","_blank","width=850,height=1000");
     w.document.write(html2);
     w.document.close();
-    w.onload=function(){w.print();};
+    // Wait for all images to fully load before printing
+    w.onload=function(){
+      var imgs=w.document.querySelectorAll("img");
+      if(!imgs.length){setTimeout(function(){w.print();},300);return;}
+      var loaded=0; var total=imgs.length;
+      function tryPrint(){loaded++;if(loaded>=total){setTimeout(function(){w.print();},300);}}
+      for(var i=0;i<imgs.length;i++){
+        if(imgs[i].complete){tryPrint();}
+        else{imgs[i].onload=tryPrint;imgs[i].onerror=tryPrint;}
+      }
+    };
   });
 }
 
