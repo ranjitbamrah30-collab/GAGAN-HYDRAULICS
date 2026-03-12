@@ -625,46 +625,63 @@ function drawInspect(order,insp,allKeys,pass,fail,filled,pct) {
     return w;
   }
 
-  // --- STATUS SUMMARY TABLE ---
+  // --- STATUS SUMMARY TABLE (one row per part/code) ---
   var sumCard=dv("card"); sumCard.style.cssText="margin-top:10px;padding:0;overflow:hidden";
   var sumHdr=dv(""); sumHdr.style.cssText="background:#1565c0;color:#fff;padding:8px 14px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px";
   sumHdr.textContent="Parts Status Summary";
   sumCard.appendChild(sumHdr);
   var sumTbl=mk("table"); sumTbl.style.cssText="width:100%;border-collapse:collapse;font-size:12px";
   var sumThead=mk("thead"); var sumHr=mk("tr");
-  ["Part","Pass","Fail","Under Process","Ordered","Pending","Ready"].forEach(function(h){
+  ["#","Part Name","Status","Dims Done","Ready"].forEach(function(h){
     var th=mk("th"); th.textContent=h;
-    th.style.cssText="padding:6px 8px;text-align:center;background:#e3f2fd;color:#1565c0;font-size:10px;font-weight:700;text-transform:uppercase;border-bottom:2px solid #90caf9";
-    if(h==="Part") th.style.textAlign="left";
+    th.style.cssText="padding:7px 8px;text-align:center;background:#e3f2fd;color:#1565c0;font-size:10px;font-weight:700;text-transform:uppercase;border-bottom:2px solid #90caf9";
+    if(h==="Part Name") th.style.textAlign="left";
     sumHr.appendChild(th);
   });
   sumThead.appendChild(sumHr); sumTbl.appendChild(sumThead);
   var sumTbody=mk("tbody");
+  var rowNum=0;
   active.forEach(function(comp){
     var codes=comp.codes.filter(function(k){return k.dimensions.length>0&&partCodes.length>0&&partCodes.indexOf(comp.id+"__"+k.id)!==-1});
     if(!codes.length) return;
     var isRdy=insp["__r__"+comp.id]&&insp["__r__"+comp.id].ready;
-    var dimPass=0,dimFail=0,dimUP=0,dimOrd=0,dimPend=0;
     codes.forEach(function(code){
+      rowNum++;
+      // Determine overall part status from its dimensions
+      var total=code.dimensions.length;
+      var pass2=0,fail2=0,up2=0,ord2=0,pend2=0;
       code.dimensions.forEach(function(dim){
         var key=comp.id+"__"+code.id+"__"+dim.id;
         var st=(insp[key]||{}).status||"Pending";
-        if(st==="Pass")dimPass++;
-        else if(st==="Fail")dimFail++;
-        else if(st==="Under Process")dimUP++;
-        else if(st==="Ordered")dimOrd++;
-        else dimPend++;
+        if(st==="Pass")pass2++;
+        else if(st==="Fail")fail2++;
+        else if(st==="Under Process")up2++;
+        else if(st==="Ordered")ord2++;
+        else pend2++;
       });
+      var done=pass2+fail2+up2+ord2;
+      // Overall status: if all pass → Pass, any fail → Fail, any ordered → Ordered, any UP → Under Process, else Pending
+      var overallSt="Pending";
+      if(done===total&&total>0) overallSt="Pass";
+      if(fail2>0) overallSt="Fail";
+      if(fail2===0&&ord2>0&&pass2+ord2===total) overallSt="Ordered";
+      if(fail2===0&&up2>0) overallSt="Under Process";
+      if(pend2>0&&done>0) overallSt="In Progress";
+      var sc3=SCOL[overallSt]||{bg:"#fff3e0",text:"#e65100",bd:"#ffcc80"};
+      var tr=mk("tr"); tr.style.cssText="border-bottom:1px solid #f0f0f0"+(isRdy?";background:#f1f8e9":"");
+      var numTd=mk("td"); numTd.textContent=rowNum; numTd.style.cssText="text-align:center;padding:6px 8px;color:#999;font-size:11px";
+      var nameTd=mk("td"); nameTd.textContent=code.codeNo; nameTd.style.cssText="padding:6px 10px;font-weight:700;font-size:12px";
+      var stTd=mk("td"); stTd.style.cssText="text-align:center;padding:4px 8px";
+      var stBdg=dv("",overallSt); stBdg.style.cssText="display:inline-block;background:"+sc3.bg+";color:"+sc3.text+";border:1px solid "+sc3.bd+";border-radius:20px;padding:2px 10px;font-size:10px;font-weight:700";
+      stTd.appendChild(stBdg);
+      var dimTd=mk("td"); dimTd.style.cssText="text-align:center;padding:6px 8px;font-size:12px;font-weight:700;color:#1565c0";
+      dimTd.textContent=done+"/"+total;
+      var rdyTd=mk("td"); rdyTd.style.cssText="text-align:center;padding:6px 8px";
+      var rdyBdg=dv("",isRdy?"✓":"—"); rdyBdg.style.cssText="font-size:13px;font-weight:700;color:"+(isRdy?"#2e7d32":"#ccc");
+      rdyTd.appendChild(rdyBdg);
+      ap(tr,numTd,nameTd,stTd,dimTd,rdyTd);
+      sumTbody.appendChild(tr);
     });
-    var tr=mk("tr"); tr.style.borderBottom="1px solid #f0f0f0";
-    if(isRdy) tr.style.background="#f1f8e9";
-    function sc(val,bg,col){var td=mk("td");td.textContent=val>0?val:"—";td.style.cssText="text-align:center;padding:5px 8px;color:"+(val>0?col:"#ccc")+";font-weight:"+(val>0?"700":"400");if(val>0)td.style.background=bg;return td;}
-    var nameTd=mk("td"); nameTd.textContent=comp.name; nameTd.style.cssText="padding:5px 10px;font-weight:700;font-size:12px";
-    var rdyTd=mk("td"); rdyTd.style.cssText="text-align:center;padding:5px 8px";
-    var rdyBdg=dv("",isRdy?"✓ Ready":"—"); rdyBdg.style.cssText="font-size:11px;font-weight:700;color:"+(isRdy?"#2e7d32":"#ccc");
-    rdyTd.appendChild(rdyBdg);
-    ap(tr,nameTd,sc(dimPass,"#e8f5e9","#2e7d32"),sc(dimFail,"#ffebee","#c62828"),sc(dimUP,"#e3f2fd","#1565c0"),sc(dimOrd,"#f3e5f5","#6a1b9a"),sc(dimPend,"","#888"),rdyTd);
-    sumTbody.appendChild(tr);
   });
   sumTbl.appendChild(sumTbody); sumCard.appendChild(sumTbl);
   w.appendChild(sumCard);
