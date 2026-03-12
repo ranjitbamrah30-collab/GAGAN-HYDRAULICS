@@ -474,8 +474,9 @@ function drawDetails(order) {
   var poTitle=dv("","📋 Purchase Order"); poTitle.style.cssText="font-size:13px;font-weight:700;color:#1565c0;text-transform:uppercase";
   poHdr.appendChild(poTitle); poCard.appendChild(poHdr);
 
-  if(order.po_file){
-    // Show uploaded PO
+  var hasPO=order.po_ref||order.po_file;
+  if(hasPO){
+    // Show uploaded PO - load from separate doc or legacy inline
     var poView=dv(""); poView.style.cssText="display:flex;align-items:center;gap:10px;padding:10px;background:#f5f7ff;border-radius:10px;border:1px solid #c5cae9";
     var poIcon=dv("",order.po_type==="pdf"?"📄":"🖼"); poIcon.style.cssText="font-size:24px;flex-shrink:0";
     var poInfo=dv("");
@@ -483,27 +484,48 @@ function drawDetails(order) {
     var poSub=dv("",order.po_type==="pdf"?"PDF Document":"Image File"); poSub.style.cssText="font-size:11px;color:#888;margin-top:2px";
     ap(poInfo,poName,poSub);
     var poBtns=dv("fl gap8"); poBtns.style.marginLeft="auto";
-    var poViewBtn=bt("bp sm","👁 View",function(){
-      if(order.po_type==="pdf"){
+    function openPOViewer(src,isPdf){
+      if(isPdf){
         var ov=dv(""); ov.style.cssText="position:fixed;top:0;left:0;width:100vw;height:100vh;background:#000;z-index:9999;display:flex;flex-direction:column";
         var bar=dv("fl jsb ai"); bar.style.cssText="padding:8px 12px;background:#111;flex-shrink:0";
         var ttl=dv("","Purchase Order"); ttl.style.cssText="color:#fff;font-size:13px;font-weight:700";
         var cls=mk("button"); cls.textContent="✕ Close"; cls.style.cssText="background:rgba(255,255,255,0.15);color:#fff;border:none;border-radius:6px;padding:6px 12px;cursor:pointer;font-family:Arial,sans-serif;font-size:13px";
         cls.onclick=function(){document.body.removeChild(ov);};
         ap(bar,ttl,cls); ov.appendChild(bar);
-        var fr=mk("iframe"); fr.src=order.po_file; fr.style.cssText="flex:1;border:none;width:100%";
+        var fr=mk("iframe"); fr.src=src; fr.style.cssText="flex:1;border:none;width:100%";
         ov.appendChild(fr); document.body.appendChild(ov);
       } else {
         var ov2=dv(""); ov2.style.cssText="position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(0,0,0,0.92);z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center";
         var cls2=mk("button"); cls2.textContent="✕ Close"; cls2.style.cssText="position:absolute;top:12px;right:12px;background:rgba(255,255,255,0.15);color:#fff;border:none;border-radius:6px;padding:8px 14px;cursor:pointer;font-family:Arial,sans-serif;font-size:14px;font-weight:700";
         cls2.onclick=function(){document.body.removeChild(ov2);};
-        var img=mk("img"); img.src=order.po_file; img.style.cssText="max-width:95vw;max-height:90vh;border-radius:8px;object-fit:contain";
+        var img=mk("img"); img.src=src; img.style.cssText="max-width:95vw;max-height:90vh;border-radius:8px;object-fit:contain";
         ov2.appendChild(cls2); ov2.appendChild(img); document.body.appendChild(ov2);
+      }
+    }
+    var poViewBtn=bt("bp sm","👁 View",function(){
+      var isPdf=order.po_type==="pdf";
+      // Try cache first
+      var cached=lsGet("gh_po_"+order.id,null);
+      if(cached){openPOViewer(cached.d,cached.t==="pdf"); return;}
+      // Legacy inline
+      if(order.po_file){openPOViewer(order.po_file,isPdf); return;}
+      // Fetch from Firestore
+      if(db&&order.po_ref){
+        db.collection("gh").doc(order.po_ref).get().then(function(doc){
+          if(doc.exists){
+            var dat=JSON.parse(doc.data().d||"{}");
+            lsSet("gh_po_"+order.id,{d:dat.d,t:dat.t});
+            openPOViewer(dat.d,dat.t==="pdf");
+          }
+        });
       }
     });
     var poDelBtn=bt("","🗑",function(){
       if(confirm("Remove uploaded Purchase Order?")){
-        var up=Object.assign({},order); delete up.po_file; delete up.po_type;
+        if(db&&order.po_ref) db.collection("gh").doc(order.po_ref).delete().catch(function(){});
+        lsSet("gh_po_"+order.id,null);
+        var up=Object.assign({},order);
+        delete up.po_file; delete up.po_ref; delete up.po_type;
         saveOrder(up); order=up; draw();
       }
     }); poDelBtn.style.cssText="background:#ffebee;border:1px solid #ef9a9a;color:#c62828;border-radius:8px;padding:6px 10px;cursor:pointer;font-size:14px;font-family:Arial,sans-serif";
@@ -522,8 +544,22 @@ function drawDetails(order) {
       if(file.size>maxMB*1024*1024){alert("File too large. Max "+maxMB+"MB.");return;}
       var reader=new FileReader();
       reader.onload=function(e){
-        var up=Object.assign({},order,{po_file:e.target.result,po_type:isPdf?"pdf":"image"});
-        saveOrder(up); order=up; draw();
+        var b64=e.target.result;
+        var poKey="po_"+order.id;
+        // Save file to separate Firestore doc
+        if(db){
+          db.collection("gh").doc(poKey).set({d:JSON.stringify({d:b64,t:isPdf?"pdf":"image"})}).then(function(){
+            lsSet("gh_po_"+order.id,{d:b64,t:isPdf?"pdf":"image"});
+            var up=Object.assign({},order,{po_ref:poKey,po_type:isPdf?"pdf":"image"});
+            delete up.po_file;
+            saveOrder(up); order=up; draw();
+          });
+        } else {
+          lsSet("gh_po_"+order.id,{d:b64,t:isPdf?"pdf":"image"});
+          var up2=Object.assign({},order,{po_ref:poKey,po_type:isPdf?"pdf":"image"});
+          delete up2.po_file;
+          saveOrder(up2); order=up2; draw();
+        }
       };
       reader.readAsDataURL(file);
     };
@@ -1622,6 +1658,10 @@ function loadAndDraw() {
   db.collection("gh").onSnapshot(function(snapshot) {
     snapshot.docChanges().forEach(function(change) {
       var docId = change.doc.id;
+      if(docId.indexOf("po_") === 0) {
+          var poOrderId=docId.replace("po_","");
+          try{var poData=JSON.parse(change.doc.data().d||"{}");lsSet("gh_po_"+poOrderId,{d:poData.d,t:poData.t});}catch(e){}
+        }
       if(docId.indexOf("drawings_") === 0) {
         var drawKey = docId.replace("drawings_","");
         if(change.type === "removed") {
