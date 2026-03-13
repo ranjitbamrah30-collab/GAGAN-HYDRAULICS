@@ -232,12 +232,140 @@ function confirmDel(msg, fn) {
   ap(c,p,r); modal("Confirm Delete",c);
 }
 
+function drawCalc() {
+  var pg=dv("pg"); var hdr=dv("ph"); var hr=dv("phr");
+  var left=dv("fl ai gap8");
+  var lg_=mk("img");lg_.src="data:image/png;base64,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";lg_.className="logo";
+  var divdr=mk("div");divdr.style.cssText="width:1px;height:28px;background:rgba(255,255,255,0.35);flex-shrink:0";
+  var btxt=mk("div");
+  var bnm=mk("div");bnm.textContent="GAGAN";bnm.style.cssText="font-size:11px;font-weight:900;letter-spacing:4.5px;line-height:1;display:block;text-align:center;width:70px";
+  var bsb=mk("div");bsb.textContent="HYDRAULICS";bsb.style.cssText="font-size:9px;font-weight:700;letter-spacing:2px;opacity:0.8;line-height:1;margin-top:2px;display:block;text-align:center;width:70px";
+  btxt.appendChild(bnm);btxt.appendChild(bsb);
+  var brand=mk("div");brand.style.cssText="display:flex;align-items:center;gap:10px;flex-shrink:0";
+  brand.appendChild(lg_);brand.appendChild(divdr);brand.appendChild(btxt);
+  var ctr=mk("div");ctr.style.cssText="font-size:13px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase";ctr.textContent="Hydraulic Calculator";
+  ap(hr,brand,ctr); hdr.appendChild(hr); pg.appendChild(hdr);
+
+  // State
+  var inputs={boreDia:100,rodDia:50,pressure:200,flowRate:20,strokeLen:500,motorHP:7.5,pumpDisp:28.1};
+  var content=dv(""); content.style.cssText="padding:12px;display:flex;flex-direction:column;gap:12px";
+
+  function numInp(label,key,unit,hint){
+    var wrap=dv(""); wrap.style.cssText="display:flex;flex-direction:column;gap:4px;flex:1;min-width:130px";
+    var lbl=mk("label"); lbl.textContent=label; lbl.style.cssText="font-size:11px;font-weight:700;color:#555;text-transform:uppercase;letter-spacing:0.5px";
+    var row=dv("fl ai gap4");
+    var inp=mk("input"); inp.type="number"; inp.value=inputs[key]; inp.step="any";
+    inp.style.cssText="flex:1;border:1.5px solid #c5cae9;border-radius:8px;padding:8px 10px;font-size:14px;font-weight:700;font-family:Arial,sans-serif;background:#fff;width:100%;box-sizing:border-box";
+    var utag=dv("",unit); utag.style.cssText="font-size:11px;font-weight:700;color:#1565c0;background:#e3f2fd;border-radius:6px;padding:3px 7px;white-space:nowrap";
+    inp.oninput=function(){inputs[key]=parseFloat(inp.value)||0;calcAll();};
+    ap(row,inp,utag); ap(wrap,lbl,row);
+    if(hint){var h=dv("",hint);h.style.cssText="font-size:10px;color:#aaa;margin-top:1px";wrap.appendChild(h);}
+    return wrap;
+  }
+
+  function resCard(label,value,unit,color,formula){
+    var card=dv(""); card.style.cssText="background:"+color+";border-radius:12px;padding:12px 14px;flex:1;min-width:130px";
+    var lbl=dv("",label); lbl.style.cssText="font-size:10px;font-weight:700;color:#555;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px";
+    var valRow=dv("fl ai gap6");
+    var val=dv("",value); val.id="res_"+label.replace(/\s/g,"_"); val.style.cssText="font-size:22px;font-weight:900;color:#1a237e";
+    var utag=dv("",unit); utag.style.cssText="font-size:12px;font-weight:700;color:#3949ab;margin-top:4px";
+    ap(valRow,val,utag); ap(card,lbl,valRow);
+    if(formula){var f=dv("",formula);f.style.cssText="font-size:10px;color:#888;margin-top:4px;font-style:italic";card.appendChild(f);}
+    return card;
+  }
+
+  // Section builder
+  function section(title,color){
+    var s=dv("card"); s.style.cssText="padding:0;overflow:hidden;border:1.5px solid "+color+"22";
+    var h=dv(""); h.style.cssText="background:"+color+";color:#fff;padding:8px 14px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px";
+    h.textContent=title; s.appendChild(h);
+    var body=dv(""); body.style.cssText="padding:12px;display:flex;flex-direction:column;gap:10px";
+    s.appendChild(body);
+    return {card:s,body:body};
+  }
+
+  // === CYLINDER INPUTS ===
+  var cylSec=section("🔩 Cylinder Parameters","#1565c0");
+  var cylRow1=dv("fl gap10"); cylRow1.style.flexWrap="wrap";
+  var cylRow2=dv("fl gap10"); cylRow2.style.flexWrap="wrap";
+  ap(cylRow1,numInp("Bore Diameter","boreDia","mm","Inner bore"),numInp("Rod Diameter","rodDia","mm","Piston rod"));
+  ap(cylRow2,numInp("System Pressure","pressure","bar","Max working"),numInp("Stroke Length","strokeLen","mm","Full stroke"));
+  ap(cylSec.body,cylRow1,cylRow2);
+
+  // === CYLINDER RESULTS ===
+  var resSec=section("📊 Cylinder Force & Speed","#1b5e20");
+  var resGrid=dv(""); resGrid.style.cssText="display:flex;flex-wrap:wrap;gap:8px;padding:4px";
+  var r1=resCard("Push Force","—","Tonnes","#e8f5e9","P × A_bore");
+  var r2=resCard("Pull Force","—","Tonnes","#e3f2fd","P × A_annulus");
+  var r3=resCard("Extend Speed","—","mm/s","#fff8e1","Q ÷ A_bore");
+  var r4=resCard("Retract Speed","—","mm/s","#fce4ec","Q ÷ A_annulus");
+  var r5=resCard("Extend Time","—","sec","#f3e5f5","Stroke ÷ Speed");
+  var r6=resCard("Retract Time","—","sec","#e0f2f1","Stroke ÷ Speed");
+  ap(resGrid,r1,r2,r3,r4,r5,r6); resSec.body.appendChild(resGrid);
+
+  // === FLOW / MOTOR ===
+  var flowSec=section("⚡ Pump & Flow","#e65100");
+  var flowRow=dv("fl gap10"); flowRow.style.flexWrap="wrap";
+  ap(flowRow,numInp("Flow Rate","flowRate","L/min","Pump output"),numInp("Motor Power","motorHP","HP","Motor rating"),numInp("Pump Displacement","pumpDisp","cc/rev","cc per rev"));
+  flowSec.body.appendChild(flowRow);
+
+  // === PUMP RESULTS ===
+  var pumpSec=section("📈 Pump Performance","#4a148c");
+  var pumpGrid=dv(""); pumpGrid.style.cssText="display:flex;flex-wrap:wrap;gap:8px;padding:4px";
+  var p1=resCard("Max Pressure","—","bar","#f3e5f5","P = (HP×600)÷Q");
+  var p2=resCard("Pump Speed","—","RPM","#ede7f6","Q×1000÷disp");
+  var p3=resCard("Hydraulic Power","—","kW","#e8eaf6","P×Q÷600");
+  var p4=resCard("Motor Efficiency","—","%","#e0f2f1","Hyd÷Shaft×100");
+  ap(pumpGrid,p1,p2,p3,p4); pumpSec.body.appendChild(pumpGrid);
+
+  // === NOTES ===
+  var noteCard=dv("card"); noteCard.style.cssText="background:#fffde7;border:1px solid #fff176;padding:10px 14px;font-size:11px;color:#795548;line-height:1.6";
+  noteCard.innerHTML="<strong>Formulas used:</strong> Force = Pressure × Area | Area_bore = π×D²/4 | Area_annulus = π×(D²−d²)/4 | Speed = Flow÷Area | Max Pressure = (HP×600)÷Q (LPM) | Hydraulic Power = P×Q÷600 kW";
+
+  ap(content,cylSec.card,resSec.card,flowSec.card,pumpSec.card,noteCard);
+  pg.appendChild(content);
+
+  function calcAll(){
+    var D=inputs.boreDia/1000; // m
+    var d=inputs.rodDia/1000;
+    var P=inputs.pressure*1e5; // Pa
+    var Q=inputs.flowRate/60000; // m³/s
+    var L=inputs.strokeLen/1000; // m
+    var HP=inputs.motorHP;
+    var disp=inputs.pumpDisp; // cc/rev
+
+    var Abore=Math.PI*D*D/4;
+    var Aann=Math.PI*(D*D-d*d)/4;
+
+    var pushF=(Abore*P/9810).toFixed(2); // tonnes
+    var pullF=(Aann*P/9810).toFixed(2);
+    var extSpd=Aann>0?(Q/Abore*1000).toFixed(1):"—"; // mm/s
+    var retSpd=Aann>0?(Q/Aann*1000).toFixed(1):"—";
+    var extT=Aann>0?(L/(Q/Abore)).toFixed(1):"—"; // sec
+    var retT=Aann>0?(L/(Q/Aann)).toFixed(1):"—";
+
+    var Qlpm=inputs.flowRate;
+    var maxP=Qlpm>0?((HP*600)/Qlpm).toFixed(1):"—"; // bar
+    var pumpRPM=disp>0?(Qlpm*1000/disp).toFixed(0):"—";
+    var hydPow=(inputs.pressure*Qlpm/600).toFixed(2); // kW
+    var shaftPow=(HP*0.7457).toFixed(2); // kW
+    var eff=parseFloat(hydPow)>0?(parseFloat(hydPow)/parseFloat(shaftPow)*100).toFixed(1):"—";
+
+    function set(card,val){var el=card.querySelector("[id^='res_']");if(el)el.textContent=val;}
+    set(r1,pushF); set(r2,pullF); set(r3,extSpd); set(r4,retSpd); set(r5,extT); set(r6,retT);
+    set(p1,maxP); set(p2,pumpRPM); set(p3,hydPow); set(p4,eff);
+  }
+  calcAll();
+  return pg;
+}
+
 function drawNav() {
   var nav=document.getElementById("nav"); nav.innerHTML="";
-  var items=[{id:"home",ic:"📋",lb:"Orders"},{id:"reports",ic:"📊",lb:"Reports"},{id:"master",ic:"⚙",lb:"Master"},{id:"users",ic:"👥",lb:"Users"}];
+  var items=[{id:"home",ic:"📋",lb:"Orders"},{id:"reports",ic:"📊",lb:"Reports"},{id:"master",ic:"⚙",lb:"Master"},{id:"calc",ic:"🔧",lb:"Calc"},{id:"users",ic:"👥",lb:"Users"}];
   var active=S.screen;
   if (S.screen==="order") active="home";
   if (S.screen==="compDetail"||S.screen==="codeDetail") active="master";
+  if (S.screen==="calc") active="calc";
   items.forEach(function(item) {
     var b=dv("ni"+(active===item.id?" on":""));
     ap(b,dv("nic",item.ic),item.lb);
@@ -1619,6 +1747,7 @@ function draw(){
     else if(S.screen==="codeDetail")content=drawCodeDetail();
     else if(S.screen==="users")content=drawUsers();
     else if(S.screen==="reports")content=drawReports();
+    else if(S.screen==="calc")content=drawCalc();
     else content=drawHome();
   }catch(e){content=dv("pg");var err=dv("card");err.style.color="#c62828";err.textContent="Error: "+e.message+(e.stack?" | "+e.stack.split("\n")[1]:"");content.appendChild(err);console.error(e);}
   scr.appendChild(content);drawNav();
