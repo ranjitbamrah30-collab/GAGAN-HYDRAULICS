@@ -232,9 +232,166 @@ function confirmDel(msg, fn) {
   ap(c,p,r); modal("Confirm Delete",c);
 }
 
+function buildHydCalcUI(container, savedData, onSave, readOnly) {
+  // savedData = {motorHP, motorRPM, pump1Disp, pump2Disp, bore1, rod1, stroke1, bore2, rod2, stroke2}
+  var D = savedData || {};
+  var inp = {
+    motorHP:    D.motorHP    || 7.5,
+    motorRPM:   D.motorRPM   || 1440,
+    pump1Disp:  D.pump1Disp  || 28.1,
+    pump2Disp:  D.pump2Disp  || 16,
+    bore1:      D.bore1      || 100,
+    rod1:       D.rod1       || 56,
+    stroke1:    D.stroke1    || 500,
+    bore2:      D.bore2      || 80,
+    rod2:       D.rod2       || 45,
+    stroke2:    D.stroke2    || 400
+  };
+
+  function ni(label, key, unit, min_) {
+    var wrap = dv(""); wrap.style.cssText = "display:flex;flex-direction:column;gap:3px;flex:1;min-width:110px";
+    var lbl = mk("label"); lbl.textContent = label;
+    lbl.style.cssText = "font-size:10px;font-weight:700;color:#555;text-transform:uppercase;letter-spacing:0.4px";
+    var row = dv("fl ai gap4");
+    var i = mk("input"); i.type = "number"; i.value = inp[key]; i.step = "any";
+    if(min_ !== undefined) i.min = min_;
+    i.disabled = readOnly;
+    i.style.cssText = "flex:1;border:1.5px solid "+(readOnly?"#e0e0e0":"#c5cae9")+";border-radius:8px;padding:7px 8px;font-size:13px;font-weight:700;font-family:Arial,sans-serif;background:"+(readOnly?"#f5f5f5":"#fff")+";width:100%;box-sizing:border-box";
+    var u = dv("",unit); u.style.cssText = "font-size:10px;font-weight:700;color:#1565c0;background:#e3f2fd;border-radius:5px;padding:2px 6px;white-space:nowrap";
+    i.oninput = function(){ inp[key] = parseFloat(i.value)||0; calcAndRender(); };
+    ap(row,i,u); ap(wrap,lbl,row); return {wrap:wrap,input:i};
+  }
+
+  function calcPump(dispCC) {
+    var flowLPM = (dispCC * inp.motorRPM) / 1000; // L/min
+    var shaftKW = inp.motorHP * 0.7457;
+    var maxBar  = flowLPM > 0 ? (shaftKW * 600 / flowLPM) : 0;
+    return { flowLPM: flowLPM, maxBar: maxBar };
+  }
+
+  function calcCyl(bore_mm, rod_mm, stroke_mm, flowLPM, maxBar) {
+    var D = bore_mm / 1000, d = rod_mm / 1000, L = stroke_mm / 1000;
+    var Ab = Math.PI * D * D / 4;
+    var Aa = Math.PI * (D*D - d*d) / 4;
+    var Q  = flowLPM / 60000; // m3/s
+    var P  = maxBar * 1e5;    // Pa
+    var pushT  = (Ab * P / 9810).toFixed(2);  // tonnes
+    var pullT  = (Aa * P / 9810).toFixed(2);
+    var fwdSpd = Ab > 0 ? (Q / Ab * 60).toFixed(3) : "—"; // m/min
+    var retSpd = Aa > 0 ? (Q / Aa * 60).toFixed(3) : "—";
+    var fwdT   = Ab > 0 && Q > 0 ? (L / (Q/Ab)).toFixed(1) : "—"; // sec
+    var retT   = Aa > 0 && Q > 0 ? (L / (Q/Aa)).toFixed(1) : "—";
+    return { pushT, pullT, fwdSpd, retSpd, fwdT, retT };
+  }
+
+  // Result card elements stored for live update
+  var resEls = {};
+  function resCard(id, label, color) {
+    var card = dv(""); card.style.cssText = "background:"+color+";border-radius:10px;padding:9px 12px;flex:1;min-width:120px";
+    var lbl = dv("",label); lbl.style.cssText = "font-size:9px;font-weight:700;color:#555;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:3px";
+    var valU = dv("fl ai gap4");
+    var val = dv("","—"); val.style.cssText = "font-size:20px;font-weight:900;color:#1a237e";
+    var unit = dv("",""); unit.style.cssText = "font-size:10px;font-weight:700;color:#3949ab;margin-top:5px";
+    ap(valU,val,unit); ap(card,lbl,valU);
+    resEls[id] = {val:val, unit:unit};
+    return card;
+  }
+
+  function setRes(id, v, u) { if(resEls[id]){resEls[id].val.textContent=v; resEls[id].unit.textContent=u||"";} }
+
+  // ---- BUILD UI ----
+  container.innerHTML = "";
+  container.style.cssText = "display:flex;flex-direction:column;gap:10px";
+
+  // COMMON INPUTS: Motor + Pumps
+  var sec1 = dv("card"); sec1.style.cssText = "padding:0;overflow:hidden;border:1.5px solid #1565c020";
+  var s1h = dv(""); s1h.style.cssText = "background:#1565c0;color:#fff;padding:7px 14px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px";
+  s1h.textContent = "⚡ Motor & Pump"; sec1.appendChild(s1h);
+  var s1b = dv(""); s1b.style.cssText = "padding:10px;display:flex;flex-direction:column;gap:8px";
+  var r1a = dv("fl gap8"); r1a.style.flexWrap="wrap";
+  var r1b = dv("fl gap8"); r1b.style.flexWrap="wrap";
+  ap(r1a, ni("Motor Power","motorHP","HP",0).wrap, ni("Motor RPM","motorRPM","RPM",0).wrap);
+  ap(r1b, ni("Pump 1 Displacement","pump1Disp","cc/rev",0).wrap, ni("Pump 2 Displacement","pump2Disp","cc/rev",0).wrap);
+  ap(s1b,r1a,r1b); sec1.appendChild(s1b);
+
+  // PUMP RESULTS
+  var secPR = dv("card"); secPR.style.cssText = "padding:0;overflow:hidden;border:1.5px solid #e65100";
+  var sPRh = dv(""); sPRh.style.cssText = "background:#e65100;color:#fff;padding:7px 14px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px";
+  sPRh.textContent = "📊 Pump Output"; secPR.appendChild(sPRh);
+  var sPRb = dv(""); sPRb.style.cssText = "padding:10px";
+  var prGrid = dv("fl gap8"); prGrid.style.flexWrap="wrap";
+  ap(prGrid,
+    resCard("p1flow","Pump 1 Flow","#fff3e0"),
+    resCard("p1maxbar","Pump 1 Max P","#fce4ec"),
+    resCard("p2flow","Pump 2 Flow","#fff3e0"),
+    resCard("p2maxbar","Pump 2 Max P","#fce4ec")
+  );
+  sPRb.appendChild(prGrid); secPR.appendChild(sPRb);
+
+  // CYLINDER 1
+  function cylSection(num, boreKey, rodKey, strokeKey, colHdr, colCards) {
+    var sec = dv("card"); sec.style.cssText = "padding:0;overflow:hidden;border:1.5px solid "+colHdr+"33";
+    var sh = dv(""); sh.style.cssText = "background:"+colHdr+";color:#fff;padding:7px 14px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px";
+    sh.textContent = "🔩 Cylinder "+num+" (Pump "+num+")"; sec.appendChild(sh);
+    var sb = dv(""); sb.style.cssText = "padding:10px;display:flex;flex-direction:column;gap:8px";
+    var ir = dv("fl gap8"); ir.style.flexWrap="wrap";
+    ap(ir, ni("Piston Bore",""+boreKey,"mm",0).wrap, ni("Rod Dia",""+rodKey,"mm",0).wrap, ni("Stroke",""+strokeKey,"mm",0).wrap);
+    sb.appendChild(ir);
+    var rg = dv("fl gap8"); rg.style.flexWrap="wrap"; rg.style.marginTop="4px";
+    ap(rg,
+      resCard("c"+num+"push","Push Force",colCards[0]),
+      resCard("c"+num+"pull","Pull Force",colCards[1]),
+      resCard("c"+num+"fwd","Fwd Speed",colCards[2]),
+      resCard("c"+num+"ret","Ret Speed",colCards[3]),
+      resCard("c"+num+"fwdT","Fwd Time",colCards[4]),
+      resCard("c"+num+"retT","Ret Time",colCards[5])
+    );
+    sb.appendChild(rg); sec.appendChild(sb);
+    return sec;
+  }
+
+  var cyl1 = cylSection(1,"bore1","rod1","stroke1","#2e7d32",["#e8f5e9","#c8e6c9","#e3f2fd","#bbdefb","#fff8e1","#fff9c4"]);
+  var cyl2 = cylSection(2,"bore2","rod2","stroke2","#6a1b9a",["#f3e5f5","#e1bee7","#e8eaf6","#c5cae9","#fce4ec","#f8bbd0"]);
+
+  ap(container, sec1, secPR, cyl1, cyl2);
+
+  // Save button (only if not readOnly)
+  if(!readOnly && onSave) {
+    var saveBtn = bt("bp fw mt14","💾 Save & Lock to Specs",function(){
+      onSave(Object.assign({},inp));
+    });
+    container.appendChild(saveBtn);
+  }
+
+  function calcAndRender() {
+    var p1 = calcPump(inp.pump1Disp);
+    var p2 = calcPump(inp.pump2Disp);
+    setRes("p1flow", p1.flowLPM.toFixed(1), "L/min");
+    setRes("p1maxbar", p1.maxBar.toFixed(0), "bar");
+    setRes("p2flow", p2.flowLPM.toFixed(1), "L/min");
+    setRes("p2maxbar", p2.maxBar.toFixed(0), "bar");
+
+    var c1 = calcCyl(inp.bore1, inp.rod1, inp.stroke1, p1.flowLPM, p1.maxBar);
+    setRes("c1push", c1.pushT, "T");
+    setRes("c1pull", c1.pullT, "T");
+    setRes("c1fwd",  c1.fwdSpd, "m/min");
+    setRes("c1ret",  c1.retSpd, "m/min");
+    setRes("c1fwdT", c1.fwdT, "sec");
+    setRes("c1retT", c1.retT, "sec");
+
+    var c2 = calcCyl(inp.bore2, inp.rod2, inp.stroke2, p2.flowLPM, p2.maxBar);
+    setRes("c2push", c2.pushT, "T");
+    setRes("c2pull", c2.pullT, "T");
+    setRes("c2fwd",  c2.fwdSpd, "m/min");
+    setRes("c2ret",  c2.retSpd, "m/min");
+    setRes("c2fwdT", c2.fwdT, "sec");
+    setRes("c2retT", c2.retT, "sec");
+  }
+  calcAndRender();
+}
+
 function drawCalc() {
   var pg=dv("pg"); var hdr=dv("ph"); var hr=dv("phr");
-  var left=dv("fl ai gap8");
   var lg_=mk("img");lg_.src="data:image/png;base64,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";lg_.className="logo";
   var divdr=mk("div");divdr.style.cssText="width:1px;height:28px;background:rgba(255,255,255,0.35);flex-shrink:0";
   var btxt=mk("div");
@@ -246,118 +403,400 @@ function drawCalc() {
   var ctr=mk("div");ctr.style.cssText="font-size:13px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase";ctr.textContent="Hydraulic Calculator";
   ap(hr,brand,ctr); hdr.appendChild(hr); pg.appendChild(hdr);
 
-  // State
-  var inputs={boreDia:100,rodDia:50,pressure:200,flowRate:20,strokeLen:500,motorHP:7.5,pumpDisp:28.1};
   var content=dv(""); content.style.cssText="padding:12px;display:flex;flex-direction:column;gap:12px";
 
-  function numInp(label,key,unit,hint){
-    var wrap=dv(""); wrap.style.cssText="display:flex;flex-direction:column;gap:4px;flex:1;min-width:130px";
-    var lbl=mk("label"); lbl.textContent=label; lbl.style.cssText="font-size:11px;font-weight:700;color:#555;text-transform:uppercase;letter-spacing:0.5px";
+  // Tab switcher: Main Calc | Pipe Velocity | Combined Flow | Efficiency
+  var tabs=[{id:"main",lb:"⚙ Main Calc"},{id:"pipe",lb:"🚿 Pipe Velocity"},{id:"combined",lb:"🔀 Combined Flow"},{id:"efficiency",lb:"📉 Efficiency"}];
+  var activeTab="main";
+  var tabBar=dv("fl gap6"); tabBar.style.cssText="flex-wrap:wrap;margin-bottom:4px";
+  var tabContent=dv("");
+
+  function tabBtn(t){
+    var b=mk("button"); b.textContent=t.lb;
+    b.style.cssText="padding:7px 12px;border-radius:20px;border:none;cursor:pointer;font-size:12px;font-weight:700;font-family:Arial,sans-serif;transition:all 0.15s";
+    function setActive(active){b.style.background=active?"#1565c0":"#e3f2fd";b.style.color=active?"#fff":"#1565c0";}
+    setActive(t.id===activeTab);
+    b.onclick=function(){
+      activeTab=t.id;
+      tabs.forEach(function(x,i){tabBar.children[i]&&(tabBar.children[i].style.background=x.id===activeTab?"#1565c0":"#e3f2fd");tabBar.children[i]&&(tabBar.children[i].style.color=x.id===activeTab?"#fff":"#1565c0");});
+      renderTab();
+    };
+    return b;
+  }
+  tabs.forEach(function(t){tabBar.appendChild(tabBtn(t));});
+  content.appendChild(tabBar);
+  content.appendChild(tabContent);
+
+  function renderTab(){
+    tabContent.innerHTML="";
+    if(activeTab==="main"){
+      tabContent.appendChild(buildHydCalc(null,null));
+    } else if(activeTab==="pipe"){
+      tabContent.appendChild(buildPipeCalc());
+    } else if(activeTab==="combined"){
+      tabContent.appendChild(buildCombinedCalc());
+    } else if(activeTab==="efficiency"){
+      tabContent.appendChild(buildEfficiencyCalc());
+    }
+  }
+  renderTab();
+  pg.appendChild(content);
+  return pg;
+}
+
+// ---- PIPE VELOCITY CALCULATOR ----
+function buildPipeCalc(){
+  var D={flow1:20,pipeDia1:25,flow2:10,pipeDia2:20};
+  var wrap=dv(""); wrap.style.cssText="display:flex;flex-direction:column;gap:10px";
+  var note=dv("card"); note.style.cssText="background:#e3f2fd;padding:10px 14px;font-size:11px;color:#1565c0;line-height:1.6;border-left:3px solid #1565c0";
+  note.innerHTML="<strong>Recommended velocities:</strong> Pressure lines: 2–4 m/s &nbsp;|&nbsp; Return lines: 1–2 m/s &nbsp;|&nbsp; Suction lines: 0.5–1 m/s";
+  wrap.appendChild(note);
+
+  function pipeBlock(num,prefix,color){
+    var card=dv("card"); card.style.cssText="border:1.5px solid "+color+"44;padding:0;overflow:hidden;border-radius:10px";
+    var h=dv(""); h.style.cssText="background:"+color+";color:#fff;padding:8px 14px;font-size:12px;font-weight:700;text-transform:uppercase";
+    h.textContent="🚿 Line "+num+" (Pump "+num+")"; card.appendChild(h);
+    var body=dv(""); body.style.cssText="padding:12px;display:flex;flex-direction:column;gap:10px";
+    var inp=dv("fl gap8"); inp.style.flexWrap="wrap";
+    function ni2(lbl,key,unit){
+      var w=dv(""); w.style.cssText="flex:1;min-width:110px;display:flex;flex-direction:column;gap:3px";
+      var l=dv("",lbl); l.style.cssText="font-size:10px;font-weight:700;color:#555;text-transform:uppercase";
+      var r=dv("fl ai gap4");
+      var i=mk("input"); i.type="number"; i.value=D[key]; i.step="any";
+      i.style.cssText="flex:1;border:1.5px solid #c5cae9;border-radius:8px;padding:7px 8px;font-size:14px;font-weight:700;font-family:Arial,sans-serif;background:#fff;min-width:0";
+      var u=dv("",unit); u.style.cssText="font-size:10px;font-weight:700;color:#1565c0;background:#e3f2fd;border-radius:5px;padding:2px 6px;white-space:nowrap";
+      i.oninput=function(){D[key]=parseFloat(i.value)||0;calcPipe();};
+      ap(r,i,u); ap(w,l,r); return w;
+    }
+    ap(inp,ni2("Flow Rate","flow"+num,"L/min"),ni2("Pipe Inner Dia","pipeDia"+num,"mm"));
+    var resRow=dv("fl gap8"); resRow.style.cssText="flex-wrap:wrap;margin-top:4px";
+    var velBox=dv(""); velBox.style.cssText="flex:1;min-width:120px;background:#fff8e1;border-radius:10px;padding:10px";
+    var velLbl=dv("","Velocity"); velLbl.style.cssText="font-size:10px;font-weight:700;color:#666;text-transform:uppercase";
+    var velVal=dv("","—"); velVal.id="pipe_vel_"+num; velVal.style.cssText="font-size:22px;font-weight:900;color:#e65100";
+    var velU=dv("","m/s"); velU.style.cssText="font-size:11px;color:#e65100;font-weight:700";
+    ap(velBox,velLbl,velVal,velU);
+    var recBox=dv(""); recBox.id="pipe_rec_"+num; recBox.style.cssText="flex:1;min-width:120px;border-radius:10px;padding:10px;background:#f5f5f5";
+    ap(resRow,velBox,recBox);
+    ap(body,inp,resRow); card.appendChild(body);
+    return card;
+  }
+  wrap.appendChild(pipeBlock(1,"flow1","#1565c0"));
+  wrap.appendChild(pipeBlock(2,"flow2","#b71c1c"));
+
+  function calcPipe(){
+    [1,2].forEach(function(n){
+      var q=D["flow"+n]/60000; // m³/s
+      var d=D["pipeDia"+n]/1000; // m
+      var A=Math.PI*d*d/4;
+      var v=A>0?(q/A):0;
+      var el=document.getElementById("pipe_vel_"+n);
+      if(el) el.textContent=v.toFixed(2);
+      var rec=document.getElementById("pipe_rec_"+n);
+      if(rec){
+        var ok=v>=2&&v<=4; var warn=v>4; var low=v<2;
+        rec.style.background=ok?"#e8f5e9":warn?"#ffebee":"#fff8e1";
+        rec.innerHTML="<div style='font-size:10px;font-weight:700;color:#555;text-transform:uppercase;margin-bottom:4px'>Recommendation</div>"
+          +"<div style='font-size:12px;font-weight:700;color:"+(ok?"#2e7d32":warn?"#c62828":"#e65100")+"'>"
+          +(ok?"✅ Good (pressure line)":(warn?"⚠ Too fast — use larger pipe":"ℹ Low — check if return/suction line"))+"</div>";
+      }
+    });
+  }
+  setTimeout(calcPipe,50);
+  return wrap;
+}
+
+// ---- COMBINED FLOW CALCULATOR ----
+function buildCombinedCalc(){
+  var D={motorHP:7.5,motorRPM:1440,p1Disp:28.1,p2Disp:14,pistonDia:100,rodDia:50,stroke:500};
+  var wrap=dv(""); wrap.style.cssText="display:flex;flex-direction:column;gap:10px";
+  var note=dv("card"); note.style.cssText="background:#e8f5e9;padding:10px 14px;font-size:11px;color:#2e7d32;line-height:1.6;border-left:3px solid #2e7d32";
+  note.innerHTML="<strong>Combined flow mode:</strong> Both pumps feed the same cylinder together. Used for high-speed rapid advance before switching to single pump at full pressure.";
+  wrap.appendChild(note);
+
+  var inputCard=dv("card");
+  var r1=dv("fl gap8"); r1.style.flexWrap="wrap";
+  var r2=dv("fl gap8"); r2.style.flexWrap="wrap";
+  var r3=dv("fl gap8"); r3.style.flexWrap="wrap";
+
+  function ni3(lbl,key,unit){
+    var w=dv(""); w.style.cssText="flex:1;min-width:110px;display:flex;flex-direction:column;gap:3px";
+    var l=dv("",lbl); l.style.cssText="font-size:10px;font-weight:700;color:#555;text-transform:uppercase";
     var row=dv("fl ai gap4");
-    var inp=mk("input"); inp.type="number"; inp.value=inputs[key]; inp.step="any";
-    inp.style.cssText="flex:1;border:1.5px solid #c5cae9;border-radius:8px;padding:8px 10px;font-size:14px;font-weight:700;font-family:Arial,sans-serif;background:#fff;width:100%;box-sizing:border-box";
-    var utag=dv("",unit); utag.style.cssText="font-size:11px;font-weight:700;color:#1565c0;background:#e3f2fd;border-radius:6px;padding:3px 7px;white-space:nowrap";
-    inp.oninput=function(){inputs[key]=parseFloat(inp.value)||0;calcAll();};
-    ap(row,inp,utag); ap(wrap,lbl,row);
-    if(hint){var h=dv("",hint);h.style.cssText="font-size:10px;color:#aaa;margin-top:1px";wrap.appendChild(h);}
-    return wrap;
+    var i=mk("input"); i.type="number"; i.value=D[key]; i.step="any";
+    i.style.cssText="flex:1;border:1.5px solid #c5cae9;border-radius:8px;padding:7px 8px;font-size:14px;font-weight:700;font-family:Arial,sans-serif;background:#fff;min-width:0";
+    var u=dv("",unit); u.style.cssText="font-size:10px;font-weight:700;color:#1565c0;background:#e3f2fd;border-radius:5px;padding:2px 6px;white-space:nowrap";
+    i.oninput=function(){D[key]=parseFloat(i.value)||0;calcComb();};
+    ap(row,i,u); ap(w,l,row); return w;
+  }
+  ap(r1,ni3("Motor HP","motorHP","HP"),ni3("Motor RPM","motorRPM","RPM"));
+  ap(r2,ni3("Pump 1 Disp","p1Disp","cc/rev"),ni3("Pump 2 Disp","p2Disp","cc/rev"));
+  ap(r3,ni3("Piston Dia","pistonDia","mm"),ni3("Rod Dia","rodDia","mm"),ni3("Stroke","stroke","mm"));
+  ap(inputCard,r1,r2,r3); wrap.appendChild(inputCard);
+
+  var resCard2=dv("card"); resCard2.style.cssText="padding:0;overflow:hidden;border:1.5px solid #2e7d3244;border-radius:10px";
+  var resHdr=dv(""); resHdr.style.cssText="background:#2e7d32;color:#fff;padding:8px 14px;font-size:12px;font-weight:700;text-transform:uppercase";
+  resHdr.textContent="📊 Combined Results";
+  var resGrid=dv(""); resGrid.style.cssText="display:flex;flex-wrap:wrap;gap:8px;padding:12px";
+  function rb2(id,lbl,unit,bg,tc){
+    var w=dv(""); w.style.cssText="flex:1;min-width:100px;background:"+bg+";border-radius:10px;padding:10px";
+    var l=dv("",lbl); l.style.cssText="font-size:9px;font-weight:700;color:#666;text-transform:uppercase;margin-bottom:4px";
+    var v=dv("","—"); v.id=id; v.style.cssText="font-size:20px;font-weight:900;color:"+tc;
+    var u=dv("",unit); u.style.cssText="font-size:10px;font-weight:700;color:"+tc;
+    ap(w,l,v,u); return w;
+  }
+  resGrid.appendChild(rb2("comb_flow","Total Flow","L/min","#e3f2fd","#1565c0"));
+  resGrid.appendChild(rb2("comb_p1flow","Pump 1 Flow","L/min","#e8eaf6","#3949ab"));
+  resGrid.appendChild(rb2("comb_p2flow","Pump 2 Flow","L/min","#fce4ec","#c62828"));
+  resGrid.appendChild(rb2("comb_maxP","Max Pressure","bar","#ffebee","#c62828"));
+  resGrid.appendChild(rb2("comb_tonn","Tonnage","T","#e8f5e9","#2e7d32"));
+  resGrid.appendChild(rb2("comb_extSpd","Extend Speed","m/min","#fff8e1","#e65100"));
+  resGrid.appendChild(rb2("comb_retSpd","Return Speed","m/min","#f3e5f5","#6a1b9a"));
+  resGrid.appendChild(rb2("comb_extT","Extend Time","sec","#e0f2f1","#00695c"));
+  resGrid.appendChild(rb2("comb_retT","Return Time","sec","#ede7f6","#4527a0"));
+  ap(resCard2,resHdr,resGrid); wrap.appendChild(resCard2);
+
+  function sv(id,v){var e=document.getElementById(id);if(e)e.textContent=v;}
+  function calcComb(){
+    var kW=D.motorHP*0.7457;
+    var f1=(D.p1Disp*D.motorRPM)/1000;
+    var f2=(D.p2Disp*D.motorRPM)/1000;
+    var totalFlow=f1+f2;
+    var maxP=totalFlow>0?((kW*600)/totalFlow):0;
+    var pd=D.pistonDia/10; var rd=D.rodDia/10;
+    var Ab=Math.PI*pd*pd/4; var Aa=Math.PI*(pd*pd-rd*rd)/4;
+    var tonn=Ab>0?(maxP*Ab)/(10*9.81):0;
+    var extSpd=Ab>0?(totalFlow*1000/Ab/100):0;
+    var retSpd=Aa>0?(totalFlow*1000/Aa/100):0;
+    var extT=extSpd>0?(D.stroke/1000/(extSpd/60)):0;
+    var retT=retSpd>0?(D.stroke/1000/(retSpd/60)):0;
+    sv("comb_flow",totalFlow.toFixed(1)); sv("comb_p1flow",f1.toFixed(1)); sv("comb_p2flow",f2.toFixed(1));
+    sv("comb_maxP",maxP.toFixed(0)); sv("comb_tonn",tonn.toFixed(2));
+    sv("comb_extSpd",extSpd.toFixed(3)); sv("comb_retSpd",retSpd.toFixed(3));
+    sv("comb_extT",extT.toFixed(1)); sv("comb_retT",retT.toFixed(1));
+  }
+  setTimeout(calcComb,50);
+  return wrap;
+}
+
+// ---- EFFICIENCY CALCULATOR ----
+function buildEfficiencyCalc(){
+  var D={motorHP:7.5,flow:20,pressure:200,mechEff:90,volEff:95};
+  var wrap=dv(""); wrap.style.cssText="display:flex;flex-direction:column;gap:10px";
+
+  var inputCard=dv("card");
+  var rr=dv("fl gap8"); rr.style.flexWrap="wrap";
+  function ni4(lbl,key,unit,mn,mx){
+    var w=dv(""); w.style.cssText="flex:1;min-width:110px;display:flex;flex-direction:column;gap:3px";
+    var l=dv("",lbl); l.style.cssText="font-size:10px;font-weight:700;color:#555;text-transform:uppercase";
+    var row=dv("fl ai gap4");
+    var i=mk("input"); i.type="number"; i.value=D[key]; i.step="any"; if(mn)i.min=mn; if(mx)i.max=mx;
+    i.style.cssText="flex:1;border:1.5px solid #c5cae9;border-radius:8px;padding:7px 8px;font-size:14px;font-weight:700;font-family:Arial,sans-serif;background:#fff;min-width:0";
+    var u=dv("",unit); u.style.cssText="font-size:10px;font-weight:700;color:#1565c0;background:#e3f2fd;border-radius:5px;padding:2px 6px;white-space:nowrap";
+    i.oninput=function(){D[key]=parseFloat(i.value)||0;calcEff();};
+    ap(row,i,u); ap(w,l,row); return w;
+  }
+  ap(rr,ni4("Motor Power","motorHP","HP"),ni4("Actual Flow","flow","L/min"),ni4("Working Pressure","pressure","bar"),ni4("Mech. Efficiency","mechEff","%",0,100),ni4("Vol. Efficiency","volEff","%",0,100));
+  inputCard.appendChild(rr); wrap.appendChild(inputCard);
+
+  var resCard3=dv("card"); resCard3.style.cssText="border:1.5px solid #4a148c44;padding:0;border-radius:10px;overflow:hidden";
+  var resHdr3=dv(""); resHdr3.style.cssText="background:#4a148c;color:#fff;padding:8px 14px;font-size:12px;font-weight:700;text-transform:uppercase";
+  resHdr3.textContent="📉 Efficiency Results";
+  var resGrid3=dv(""); resGrid3.style.cssText="display:flex;flex-wrap:wrap;gap:8px;padding:12px";
+  function rb3(id,lbl,unit,bg,tc){
+    var w=dv(""); w.style.cssText="flex:1;min-width:110px;background:"+bg+";border-radius:10px;padding:10px";
+    var l=dv("",lbl); l.style.cssText="font-size:9px;font-weight:700;color:#666;text-transform:uppercase;margin-bottom:4px";
+    var v=dv("","—"); v.id=id; v.style.cssText="font-size:20px;font-weight:900;color:"+tc;
+    var u=dv("",unit); u.style.cssText="font-size:10px;font-weight:700;color:"+tc;
+    ap(w,l,v,u); return w;
+  }
+  resGrid3.appendChild(rb3("eff_shaftKW","Shaft Power","kW","#e8eaf6","#3949ab"));
+  resGrid3.appendChild(rb3("eff_hydKW","Hydraulic Power","kW","#e3f2fd","#1565c0"));
+  resGrid3.appendChild(rb3("eff_overallEff","Overall Efficiency","%","#e8f5e9","#2e7d32"));
+  resGrid3.appendChild(rb3("eff_heatLoss","Heat Loss","kW","#ffebee","#c62828"));
+  resGrid3.appendChild(rb3("eff_maxP","Theoretical Max P","bar","#fff8e1","#e65100"));
+  ap(resCard3,resHdr3,resGrid3); wrap.appendChild(resCard3);
+
+  function sv(id,v){var e=document.getElementById(id);if(e)e.textContent=v;}
+  function calcEff(){
+    var shaftKW=D.motorHP*0.7457;
+    var hydKW=(D.pressure*D.flow)/600;
+    var oe=shaftKW>0?(hydKW/shaftKW*100):0;
+    var heat=shaftKW-hydKW;
+    var maxP=D.flow>0?(shaftKW*600/D.flow):0;
+    sv("eff_shaftKW",shaftKW.toFixed(2)); sv("eff_hydKW",hydKW.toFixed(2));
+    sv("eff_overallEff",oe.toFixed(1)); sv("eff_heatLoss",heat.toFixed(2));
+    sv("eff_maxP",maxP.toFixed(0));
+  }
+  setTimeout(calcEff,50);
+  return wrap;
+}
+
+
+function buildHydCalc(order, saveCallback) {
+  // order: if set, load/save from order.hydCalc; saveCallback: called with updated data
+  var saved = order && order.hydCalc ? order.hydCalc : {};
+  var D = {
+    motorHP: saved.motorHP||7.5,
+    motorRPM: saved.motorRPM||1440,
+    // Pump 1
+    p1Disp: saved.p1Disp||28.1,
+    p1PistonDia: saved.p1PistonDia||100,
+    p1RodDia: saved.p1RodDia||50,
+    p1Stroke: saved.p1Stroke||500,
+    // Pump 2
+    p2Disp: saved.p2Disp||14,
+    p2PistonDia: saved.p2PistonDia||80,
+    p2RodDia: saved.p2RodDia||40,
+    p2Stroke: saved.p2Stroke||500
+  };
+
+  var wrap=dv(""); wrap.style.cssText="display:flex;flex-direction:column;gap:10px";
+
+  // Helper: labeled number input
+  function ni(label, key, unit, step) {
+    var w=dv(""); w.style.cssText="display:flex;flex-direction:column;gap:3px;flex:1;min-width:100px";
+    var lbl=dv("",label); lbl.style.cssText="font-size:10px;font-weight:700;color:#555;text-transform:uppercase";
+    var row=dv("fl ai gap4");
+    var inp=mk("input"); inp.type="number"; inp.value=D[key]; inp.step=step||"any";
+    inp.style.cssText="flex:1;border:1.5px solid #c5cae9;border-radius:8px;padding:7px 8px;font-size:14px;font-weight:700;font-family:Arial,sans-serif;background:#fff;min-width:0";
+    var u=dv("",unit); u.style.cssText="font-size:10px;font-weight:700;color:#1565c0;background:#e3f2fd;border-radius:5px;padding:2px 6px;white-space:nowrap";
+    inp.oninput=function(){D[key]=parseFloat(inp.value)||0;calcAll();};
+    ap(row,inp,u); ap(w,lbl,row);
+    return w;
   }
 
-  function resCard(label,value,unit,color,formula){
-    var card=dv(""); card.style.cssText="background:"+color+";border-radius:12px;padding:12px 14px;flex:1;min-width:130px";
-    var lbl=dv("",label); lbl.style.cssText="font-size:10px;font-weight:700;color:#555;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px";
-    var valRow=dv("fl ai gap6");
-    var val=dv("",value); val.id="res_"+label.replace(/\s/g,"_"); val.style.cssText="font-size:22px;font-weight:900;color:#1a237e";
-    var utag=dv("",unit); utag.style.cssText="font-size:12px;font-weight:700;color:#3949ab;margin-top:4px";
-    ap(valRow,val,utag); ap(card,lbl,valRow);
-    if(formula){var f=dv("",formula);f.style.cssText="font-size:10px;color:#888;margin-top:4px;font-style:italic";card.appendChild(f);}
+  // Helper: result box
+  function rb(id, label, unit, bg, tc) {
+    var w=dv(""); w.style.cssText="flex:1;min-width:90px;background:"+bg+";border-radius:10px;padding:10px 10px 8px;display:flex;flex-direction:column;gap:2px";
+    var lbl=dv("",label); lbl.style.cssText="font-size:9px;font-weight:700;color:#666;text-transform:uppercase;letter-spacing:0.3px";
+    var vrow=dv("fl ai gap4");
+    var val=dv("","—"); val.id=id; val.style.cssText="font-size:20px;font-weight:900;color:"+tc;
+    var ut=dv("",unit); ut.style.cssText="font-size:10px;color:"+tc+";margin-top:5px;font-weight:700";
+    ap(vrow,val,ut); ap(w,lbl,vrow);
+    return w;
+  }
+
+  // Section header
+  function secHdr(title, color) {
+    var h=dv(""); h.style.cssText="background:"+color+";color:#fff;padding:8px 14px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;border-radius:10px 10px 0 0;margin-bottom:0";
+    h.textContent=title; return h;
+  }
+
+  function secCard(color) {
+    var c=dv("card"); c.style.cssText="padding:0;overflow:hidden;border:1.5px solid "+color+"55;border-radius:10px";
+    return c;
+  }
+
+  // === MOTOR (shared) ===
+  var motorCard=secCard("#1565c0"); motorCard.appendChild(secHdr("⚡ Motor (Shared)","#1565c0"));
+  var motorBody=dv(""); motorBody.style.cssText="padding:12px;display:flex;gap:8px;flex-wrap:wrap";
+  ap(motorBody, ni("Motor Power","motorHP","HP"), ni("Motor RPM","motorRPM","RPM"));
+  motorCard.appendChild(motorBody);
+  wrap.appendChild(motorCard);
+
+  // Build pump+cylinder block
+  function pumpBlock(pNum, color) {
+    var prefix="p"+pNum;
+    var card=secCard(color);
+    card.appendChild(secHdr("🔧 Pump "+pNum+" — Cylinder "+pNum, color));
+    var body=dv(""); body.style.cssText="padding:12px;display:flex;flex-direction:column;gap:10px";
+
+    // Pump inputs
+    var pumpLbl=dv("","Pump "+pNum+" Settings"); pumpLbl.style.cssText="font-size:11px;font-weight:700;color:"+color+";text-transform:uppercase;border-bottom:1px solid #eee;padding-bottom:4px";
+    var pumpRow=dv("fl gap8"); pumpRow.style.flexWrap="wrap";
+    pumpRow.appendChild(ni("Pump Displacement",prefix+"Disp","cc/rev"));
+    body.appendChild(pumpLbl); body.appendChild(pumpRow);
+
+    // Cylinder inputs
+    var cylLbl=dv("","Cylinder "+pNum+" Dimensions"); cylLbl.style.cssText="font-size:11px;font-weight:700;color:"+color+";text-transform:uppercase;border-bottom:1px solid #eee;padding-bottom:4px;margin-top:4px";
+    var cylRow=dv("fl gap8"); cylRow.style.flexWrap="wrap";
+    cylRow.appendChild(ni("Piston Dia",prefix+"PistonDia","mm"));
+    cylRow.appendChild(ni("Rod Dia",prefix+"RodDia","mm"));
+    cylRow.appendChild(ni("Stroke",prefix+"Stroke","mm"));
+    body.appendChild(cylLbl); body.appendChild(cylRow);
+
+    // Results
+    var resLbl=dv("","Results"); resLbl.style.cssText="font-size:11px;font-weight:700;color:"+color+";text-transform:uppercase;border-bottom:1px solid #eee;padding-bottom:4px;margin-top:4px";
+    var resRow1=dv("fl gap6"); resRow1.style.flexWrap="wrap";
+    var resRow2=dv("fl gap6"); resRow2.style.flexWrap="wrap";
+    resRow1.appendChild(rb("r_"+prefix+"_flow","Flow Rate","L/min","#e3f2fd","#1565c0"));
+    resRow1.appendChild(rb("r_"+prefix+"_maxP","Max Pressure","bar","#fce4ec","#c62828"));
+    resRow1.appendChild(rb("r_"+prefix+"_tonn","Tonnage","T","#e8f5e9","#2e7d32"));
+    resRow2.appendChild(rb("r_"+prefix+"_extSpd","Extend Speed","m/min","#fff8e1","#e65100"));
+    resRow2.appendChild(rb("r_"+prefix+"_retSpd","Return Speed","m/min","#f3e5f5","#6a1b9a"));
+    resRow2.appendChild(rb("r_"+prefix+"_extT","Extend Time","sec","#e0f2f1","#00695c"));
+    resRow2.appendChild(rb("r_"+prefix+"_retT","Return Time","sec","#ede7f6","#4527a0"));
+    body.appendChild(resLbl); body.appendChild(resRow1); body.appendChild(resRow2);
+    card.appendChild(body);
     return card;
   }
 
-  // Section builder
-  function section(title,color){
-    var s=dv("card"); s.style.cssText="padding:0;overflow:hidden;border:1.5px solid "+color+"22";
-    var h=dv(""); h.style.cssText="background:"+color+";color:#fff;padding:8px 14px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px";
-    h.textContent=title; s.appendChild(h);
-    var body=dv(""); body.style.cssText="padding:12px;display:flex;flex-direction:column;gap:10px";
-    s.appendChild(body);
-    return {card:s,body:body};
+  wrap.appendChild(pumpBlock(1,"#1565c0"));
+  wrap.appendChild(pumpBlock(2,"#b71c1c"));
+
+  // Save & Lock button (only shown inside order)
+  if(saveCallback){
+    var saveBtn=bt("bp fw","🔒 Save & Lock to Machine Specs",function(){
+      saveCallback(JSON.parse(JSON.stringify(D)));
+    });
+    saveBtn.style.marginTop="4px";
+    wrap.appendChild(saveBtn);
   }
 
-  // === CYLINDER INPUTS ===
-  var cylSec=section("🔩 Cylinder Parameters","#1565c0");
-  var cylRow1=dv("fl gap10"); cylRow1.style.flexWrap="wrap";
-  var cylRow2=dv("fl gap10"); cylRow2.style.flexWrap="wrap";
-  ap(cylRow1,numInp("Bore Diameter","boreDia","mm","Inner bore"),numInp("Rod Diameter","rodDia","mm","Piston rod"));
-  ap(cylRow2,numInp("System Pressure","pressure","bar","Max working"),numInp("Stroke Length","strokeLen","mm","Full stroke"));
-  ap(cylSec.body,cylRow1,cylRow2);
+  // Formulas note
+  var note=dv("card"); note.style.cssText="background:#fffde7;border:1px solid #fff176;padding:10px 14px;font-size:10px;color:#795548;line-height:1.7";
+  note.innerHTML="<strong>Formulas:</strong> Flow = Disp × RPM / 1000 (L/min) &nbsp;|&nbsp; Max Pressure = (HP × 746 × 60) / (Flow × 100000 / 60) &nbsp;|&nbsp; Tonnage = Pressure × π × D² / (4 × 10000 × 9.81) &nbsp;|&nbsp; Extend Speed = Flow / (A_bore × 1000/60) m/min &nbsp;|&nbsp; Return Speed = Flow / (A_annulus × 1000/60) m/min";
+  wrap.appendChild(note);
 
-  // === CYLINDER RESULTS ===
-  var resSec=section("📊 Cylinder Force & Speed","#1b5e20");
-  var resGrid=dv(""); resGrid.style.cssText="display:flex;flex-wrap:wrap;gap:8px;padding:4px";
-  var r1=resCard("Push Force","—","Tonnes","#e8f5e9","P × A_bore");
-  var r2=resCard("Pull Force","—","Tonnes","#e3f2fd","P × A_annulus");
-  var r3=resCard("Extend Speed","—","mm/s","#fff8e1","Q ÷ A_bore");
-  var r4=resCard("Retract Speed","—","mm/s","#fce4ec","Q ÷ A_annulus");
-  var r5=resCard("Extend Time","—","sec","#f3e5f5","Stroke ÷ Speed");
-  var r6=resCard("Retract Time","—","sec","#e0f2f1","Stroke ÷ Speed");
-  ap(resGrid,r1,r2,r3,r4,r5,r6); resSec.body.appendChild(resGrid);
+  function setVal(id, v) {
+    var el=document.getElementById(id);
+    if(el) el.textContent=v;
+  }
 
-  // === FLOW / MOTOR ===
-  var flowSec=section("⚡ Pump & Flow","#e65100");
-  var flowRow=dv("fl gap10"); flowRow.style.flexWrap="wrap";
-  ap(flowRow,numInp("Flow Rate","flowRate","L/min","Pump output"),numInp("Motor Power","motorHP","HP","Motor rating"),numInp("Pump Displacement","pumpDisp","cc/rev","cc per rev"));
-  flowSec.body.appendChild(flowRow);
+  function calcPump(prefix) {
+    var disp=D[prefix+"Disp"];
+    var pd=D[prefix+"PistonDia"]/10; // cm
+    var rd=D[prefix+"RodDia"]/10;   // cm
+    var stroke=D[prefix+"Stroke"];   // mm
 
-  // === PUMP RESULTS ===
-  var pumpSec=section("📈 Pump Performance","#4a148c");
-  var pumpGrid=dv(""); pumpGrid.style.cssText="display:flex;flex-wrap:wrap;gap:8px;padding:4px";
-  var p1=resCard("Max Pressure","—","bar","#f3e5f5","P = (HP×600)÷Q");
-  var p2=resCard("Pump Speed","—","RPM","#ede7f6","Q×1000÷disp");
-  var p3=resCard("Hydraulic Power","—","kW","#e8eaf6","P×Q÷600");
-  var p4=resCard("Motor Efficiency","—","%","#e0f2f1","Hyd÷Shaft×100");
-  ap(pumpGrid,p1,p2,p3,p4); pumpSec.body.appendChild(pumpGrid);
+    var flow=(disp * D.motorRPM)/1000; // L/min
+    var kW=D.motorHP*0.7457;
+    var maxP=flow>0?((kW*600)/flow):0; // bar  (kW×600/Q_lpm)
 
-  // === NOTES ===
-  var noteCard=dv("card"); noteCard.style.cssText="background:#fffde7;border:1px solid #fff176;padding:10px 14px;font-size:11px;color:#795548;line-height:1.6";
-  noteCard.innerHTML="<strong>Formulas used:</strong> Force = Pressure × Area | Area_bore = π×D²/4 | Area_annulus = π×(D²−d²)/4 | Speed = Flow÷Area | Max Pressure = (HP×600)÷Q (LPM) | Hydraulic Power = P×Q÷600 kW";
+    var Abore=Math.PI*pd*pd/4; // cm²
+    var Aann=Math.PI*(pd*pd-rd*rd)/4; // cm²
 
-  ap(content,cylSec.card,resSec.card,flowSec.card,pumpSec.card,noteCard);
-  pg.appendChild(content);
+    var tonnage=Aann>0?(maxP*Abore/10):0; // kN → tonnes approx (bar×cm²/10 = kN, /9.81 = T)
+    tonnage=(maxP*Abore)/(10*9.81);
+
+    var extSpd=Abore>0?(flow/(Abore*10/60)):0; // m/min: (L/min)/(cm²) × (1000cm³/L)/(10000cm²/m²)/100
+    // Simplified: flow L/min / (Abore cm²) * (1000/10000) * 100 = flow/Abore * 10
+    extSpd=Abore>0?(flow*10/Abore/100*10):0;
+    // Correct formula: v(m/min) = Q(L/min) × 1000(cm³/L) / A(cm²) / 100(cm/m)
+    extSpd=Abore>0?(flow*1000/Abore/100):0;
+    var retSpd=Aann>0?(flow*1000/Aann/100):0;
+
+    var extT=extSpd>0?(stroke/1000/(extSpd/60)):0; // sec
+    var retT=retSpd>0?(stroke/1000/(retSpd/60)):0;
+
+    setVal("r_"+prefix+"_flow", flow.toFixed(1));
+    setVal("r_"+prefix+"_maxP", maxP.toFixed(0));
+    setVal("r_"+prefix+"_tonn", tonnage.toFixed(2));
+    setVal("r_"+prefix+"_extSpd", extSpd.toFixed(3));
+    setVal("r_"+prefix+"_retSpd", retSpd.toFixed(3));
+    setVal("r_"+prefix+"_extT", extT.toFixed(1));
+    setVal("r_"+prefix+"_retT", retT.toFixed(1));
+  }
 
   function calcAll(){
-    var D=inputs.boreDia/1000; // m
-    var d=inputs.rodDia/1000;
-    var P=inputs.pressure*1e5; // Pa
-    var Q=inputs.flowRate/60000; // m³/s
-    var L=inputs.strokeLen/1000; // m
-    var HP=inputs.motorHP;
-    var disp=inputs.pumpDisp; // cc/rev
-
-    var Abore=Math.PI*D*D/4;
-    var Aann=Math.PI*(D*D-d*d)/4;
-
-    var pushF=(Abore*P/9810).toFixed(2); // tonnes
-    var pullF=(Aann*P/9810).toFixed(2);
-    var extSpd=Aann>0?(Q/Abore*1000).toFixed(1):"—"; // mm/s
-    var retSpd=Aann>0?(Q/Aann*1000).toFixed(1):"—";
-    var extT=Aann>0?(L/(Q/Abore)).toFixed(1):"—"; // sec
-    var retT=Aann>0?(L/(Q/Aann)).toFixed(1):"—";
-
-    var Qlpm=inputs.flowRate;
-    var maxP=Qlpm>0?((HP*600)/Qlpm).toFixed(1):"—"; // bar
-    var pumpRPM=disp>0?(Qlpm*1000/disp).toFixed(0):"—";
-    var hydPow=(inputs.pressure*Qlpm/600).toFixed(2); // kW
-    var shaftPow=(HP*0.7457).toFixed(2); // kW
-    var eff=parseFloat(hydPow)>0?(parseFloat(hydPow)/parseFloat(shaftPow)*100).toFixed(1):"—";
-
-    function set(card,val){var el=card.querySelector("[id^='res_']");if(el)el.textContent=val;}
-    set(r1,pushF); set(r2,pullF); set(r3,extSpd); set(r4,retSpd); set(r5,extT); set(r6,retT);
-    set(p1,maxP); set(p2,pumpRPM); set(p3,hydPow); set(p4,eff);
+    calcPump("p1");
+    calcPump("p2");
   }
-  calcAll();
-  return pg;
+
+  setTimeout(calcAll, 50);
+  return wrap;
 }
+
 
 function drawNav() {
   var nav=document.getElementById("nav"); nav.innerHTML="";
@@ -540,6 +979,30 @@ function drawDetails(order) {
     card.appendChild(bt("bp fw mt14","🔒 Save & Lock Specs",function(){var up=Object.assign({},order,{specs:Object.assign({},f)});saveOrder(up);draw()}));
   }
   w.appendChild(card);
+
+  // Hydraulic Calculator under specs
+  var calcCard=dv("card"); calcCard.style.cssText="margin-top:10px;padding:0;overflow:hidden;border:1.5px solid #1565c033;border-radius:10px";
+  var calcHdr=dv("fl jsb ai"); calcHdr.style.cssBottom="background:#0d47a1;color:#fff;padding:8px 14px;cursor:pointer;border-radius:10px 10px 0 0";
+  calcHdr.style.cssText="background:#0d47a1;color:#fff;padding:10px 14px;cursor:pointer;display:flex;align-items:center;justify-content:space-between";
+  var calcTitle=dv("","🔧 Hydraulic Calculator"); calcTitle.style.cssText="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px";
+  var calcToggle=dv("","▼"); calcToggle.style.cssText="font-size:12px;color:rgba(255,255,255,0.7)";
+  ap(calcHdr,calcTitle,calcToggle);
+  var calcBody=dv(""); calcBody.style.cssText="padding:12px;display:none";
+  // Build calculator with save callback
+  var calcWidget=buildHydCalc(order, function(data){
+    var up=Object.assign({},order,{hydCalc:data});
+    saveOrder(up); order=up;
+    alert("Hydraulic data saved to machine specs!");
+  });
+  calcBody.appendChild(calcWidget);
+  calcHdr.onclick=function(){
+    var open=calcBody.style.display!=="none";
+    calcBody.style.display=open?"none":"block";
+    calcToggle.textContent=open?"▼":"▲";
+  };
+  ap(calcCard,calcHdr,calcBody);
+  w.appendChild(calcCard);
+
 
   // Part Parts for Inspection
   // Machine Model Selector for Inspection
@@ -1731,7 +2194,40 @@ function exportInspPDF(order,master,insp){
     })
   });
   var css="*{box-sizing:border-box;margin:0;padding:0}body{font-family:Arial,sans-serif;font-size:11px;padding:16px}.lh{border-bottom:3px solid #1565c0;padding-bottom:10px;margin-bottom:12px;display:flex;justify-content:space-between}.co{font-size:18px;font-weight:700;color:#1565c0}.mg{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:8px}.mf{background:#f5f5f5;padding:8px;border-radius:4px}.ml{font-size:9px;color:#888;font-weight:700;text-transform:uppercase;margin-bottom:2px}.sg{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px}.scc{background:#f5f5f5;padding:10px;text-align:center;border-radius:4px}.sn{font-size:20px;font-weight:700}table{width:100%;border-collapse:collapse;font-size:10px}th{background:#444;color:#fff;padding:5px 8px;text-align:left}td{padding:4px 8px;border-bottom:1px solid #eee}@media print{@page{size:A4;margin:10mm}body{padding:0}}";
-  var html="<!DOCTYPE html><html><head><meta charset='utf-8'><style>"+css+"<\/style><\/head><body><div class='lh'><div><div class='co'>&#9881; GAGAN HYDRAULICS<\/div><div style='font-size:12px;color:#555;margin-top:3px'>Inspection Report<\/div><\/div><div style='text-align:right;font-size:10px;color:#999'>"+new Date().toLocaleString("en-IN")+"<\/div><\/div><div class='mg'><div class='mf'><div class='ml'>Serial No<\/div>"+order.sn+"<\/div><div class='mf'><div class='ml'>PO No<\/div>"+order.po+"<\/div><div class='mf'><div class='ml'>Customer<\/div>"+order.cust+"<\/div><div class='mf'><div class='ml'>Delivery<\/div>"+fd(order.delivery)+"<\/div><\/div>"+(sp.model?"<div class='mg'><div class='mf'><div class='ml'>Model<\/div>"+sp.model+"<\/div><div class='mf'><div class='ml'>Motor<\/div>"+(sp.motor||"—")+"<\/div><div class='mf'><div class='ml'>Pump<\/div>"+(sp.pump||"—")+"<\/div><div class='mf'><div class='ml'>Tank Size<\/div>"+(sp.tank||"—")+"<\/div><\/div>":"")+(sp.cyl||sp.spec||sp.acc?"<div class='mg'><div class='mf'><div class='ml'>Cylinder Size<\/div>"+(sp.cyl||"—")+"<\/div><div class='mf'><div class='ml'>Specifications<\/div>"+(sp.spec||"—")+"<\/div><div class='mf' style='grid-column:span 2'><div class='ml'>Accessories<\/div>"+(sp.acc||"—")+"<\/div><\/div>":"")+"<div class='sg'><div class='scc'><div class='sn'>"+total+"<\/div><div>Total<\/div><\/div><div class='scc'><div class='sn' style='color:#2e7d32'>"+pass+"<\/div><div>Pass<\/div><\/div><div class='scc'><div class='sn' style='color:#c62828'>"+fail+"<\/div><div>Fail<\/div><\/div><div class='scc'><div class='sn' style='color:#888'>"+(total-pass-fail)+"<\/div><div>Pending<\/div><\/div><\/div><table><thead><tr><th>Dimension<\/th><th>Standard<\/th><th>Tolerance<\/th><th>Unit<\/th><th>Actual<\/th><th>Status<\/th><th>Inspector<\/th><th>Remarks<\/th><\/tr><\/thead><tbody>"+rows+"<\/tbody><\/table><\/body><\/html>";
+  var html="<!DOCTYPE html><html><head><meta charset='utf-8'><style>"+css+"<\/style><\/head><body><div class='lh'><div><div class='co'>&#9881; GAGAN HYDRAULICS<\/div><div style='font-size:12px;color:#555;margin-top:3px'>Inspection Report<\/div><\/div><div style='text-align:right;font-size:10px;color:#999'>"+new Date().toLocaleString("en-IN")+"<\/div><\/div><div class='mg'><div class='mf'><div class='ml'>Serial No<\/div>"+order.sn+"<\/div><div class='mf'><div class='ml'>PO No<\/div>"+order.po+"<\/div><div class='mf'><div class='ml'>Customer<\/div>"+order.cust+"<\/div><div class='mf'><div class='ml'>Delivery<\/div>"+fd(order.delivery)+"<\/div><\/div>"+(sp.model?"<div class='mg'><div class='mf'><div class='ml'>Model<\/div>"+sp.model+"<\/div><div class='mf'><div class='ml'>Motor<\/div>"+(sp.motor||"—")+"<\/div><div class='mf'><div class='ml'>Pump<\/div>"+(sp.pump||"—")+"<\/div><div class='mf'><div class='ml'>Tank Size<\/div>"+(sp.tank||"—")+"<\/div><\/div>":"")+(sp.cyl||sp.spec||sp.acc?"<div class='mg'><div class='mf'><div class='ml'>Cylinder Size<\/div>"+(sp.cyl||"—")+"<\/div><div class='mf'><div class='ml'>Specifications<\/div>"+(sp.spec||"—")+"<\/div><div class='mf' style='grid-column:span 2'><div class='ml'>Accessories<\/div>"+(sp.acc||"—")+"<\/div><\/div>":"")+(order.hydCalc?(function(hc){
+    var kW=(hc.motorHP||0)*0.7457;
+    function pCalc(pre){
+      var flow=((hc[pre+"Disp"]||0)*(hc.motorRPM||0))/1000;
+      var maxP=flow>0?((kW*600)/flow):0;
+      var pd=(hc[pre+"PistonDia"]||0)/10;
+      var rd=(hc[pre+"RodDia"]||0)/10;
+      var Ab=Math.PI*pd*pd/4;
+      var Aa=Math.PI*(pd*pd-rd*rd)/4;
+      var tonn=Ab>0?(maxP*Ab)/(10*9.81):0;
+      var extSpd=Ab>0?(flow*1000/Ab/100):0;
+      var retSpd=Aa>0?(flow*1000/Aa/100):0;
+      var extT=extSpd>0?((hc[pre+"Stroke"]||0)/1000/(extSpd/60)):0;
+      var retT=retSpd>0?((hc[pre+"Stroke"]||0)/1000/(retSpd/60)):0;
+      return {flow:flow.toFixed(1),maxP:maxP.toFixed(0),tonn:tonn.toFixed(2),extSpd:extSpd.toFixed(3),retSpd:retSpd.toFixed(3),extT:extT.toFixed(1),retT:retT.toFixed(1)};
+    }
+    var r1=pCalc("p1"); var r2=pCalc("p2");
+    return "<div style='margin-top:8px;border:1px solid #e0e0e0;border-radius:6px;overflow:hidden'>"
+      +"<div style='background:#0d47a1;color:#fff;padding:6px 10px;font-size:10px;font-weight:700;text-transform:uppercase'>🔧 Hydraulic Calculator — Motor: "+(hc.motorHP||"—")+"HP @ "+(hc.motorRPM||"—")+"RPM</div>"
+      +"<table style='width:100%;border-collapse:collapse;font-size:10px'>"
+      +"<thead><tr style='background:#e3f2fd'><th style='padding:5px 8px;text-align:left'>Parameter</th><th style='padding:5px 8px;text-align:center'>Pump 1 — Cyl 1</th><th style='padding:5px 8px;text-align:center'>Pump 2 — Cyl 2</th></tr></thead>"
+      +"<tbody>"
+      +"<tr><td style='padding:4px 8px;font-weight:700'>Pump Displacement</td><td style='text-align:center;padding:4px 8px'>"+(hc.p1Disp||"—")+" cc/rev</td><td style='text-align:center;padding:4px 8px'>"+(hc.p2Disp||"—")+" cc/rev</td></tr>"
+      +"<tr style='background:#f5f5f5'><td style='padding:4px 8px;font-weight:700'>Piston Dia / Rod Dia</td><td style='text-align:center;padding:4px 8px'>"+(hc.p1PistonDia||"—")+"mm / "+(hc.p1RodDia||"—")+"mm</td><td style='text-align:center;padding:4px 8px'>"+(hc.p2PistonDia||"—")+"mm / "+(hc.p2RodDia||"—")+"mm</td></tr>"
+      +"<tr><td style='padding:4px 8px;font-weight:700'>Stroke</td><td style='text-align:center;padding:4px 8px'>"+(hc.p1Stroke||"—")+"mm</td><td style='text-align:center;padding:4px 8px'>"+(hc.p2Stroke||"—")+"mm</td></tr>"
+      +"<tr style='background:#e8f5e9'><td style='padding:4px 8px;font-weight:700'>Flow Rate</td><td style='text-align:center;padding:4px 8px;font-weight:700;color:#1565c0'>"+r1.flow+" L/min</td><td style='text-align:center;padding:4px 8px;font-weight:700;color:#1565c0'>"+r2.flow+" L/min</td></tr>"
+      +"<tr style='background:#ffebee'><td style='padding:4px 8px;font-weight:700'>Max Pressure</td><td style='text-align:center;padding:4px 8px;font-weight:700;color:#c62828'>"+r1.maxP+" bar</td><td style='text-align:center;padding:4px 8px;font-weight:700;color:#c62828'>"+r2.maxP+" bar</td></tr>"
+      +"<tr style='background:#e8f5e9'><td style='padding:4px 8px;font-weight:700'>Tonnage</td><td style='text-align:center;padding:4px 8px;font-weight:700;color:#2e7d32'>"+r1.tonn+" T</td><td style='text-align:center;padding:4px 8px;font-weight:700;color:#2e7d32'>"+r2.tonn+" T</td></tr>"
+      +"<tr><td style='padding:4px 8px;font-weight:700'>Extend Speed</td><td style='text-align:center;padding:4px 8px'>"+r1.extSpd+" m/min</td><td style='text-align:center;padding:4px 8px'>"+r2.extSpd+" m/min</td></tr>"
+      +"<tr style='background:#f5f5f5'><td style='padding:4px 8px;font-weight:700'>Return Speed</td><td style='text-align:center;padding:4px 8px'>"+r1.retSpd+" m/min</td><td style='text-align:center;padding:4px 8px'>"+r2.retSpd+" m/min</td></tr>"
+      +"<tr><td style='padding:4px 8px;font-weight:700'>Extend Time</td><td style='text-align:center;padding:4px 8px'>"+r1.extT+" sec</td><td style='text-align:center;padding:4px 8px'>"+r2.extT+" sec</td></tr>"
+      +"<tr style='background:#f5f5f5'><td style='padding:4px 8px;font-weight:700'>Return Time</td><td style='text-align:center;padding:4px 8px'>"+r1.retT+" sec</td><td style='text-align:center;padding:4px 8px'>"+r2.retT+" sec</td></tr>"
+      +"</tbody></table></div>";
+  })(order.hydCalc):"")+"<div class='sg'><div class='scc'><div class='sn'>"+total+"<\/div><div>Total<\/div><\/div><div class='scc'><div class='sn' style='color:#2e7d32'>"+pass+"<\/div><div>Pass<\/div><\/div><div class='scc'><div class='sn' style='color:#c62828'>"+fail+"<\/div><div>Fail<\/div><\/div><div class='scc'><div class='sn' style='color:#888'>"+(total-pass-fail)+"<\/div><div>Pending<\/div><\/div><\/div><table><thead><tr><th>Dimension<\/th><th>Standard<\/th><th>Tolerance<\/th><th>Unit<\/th><th>Actual<\/th><th>Status<\/th><th>Inspector<\/th><th>Remarks<\/th><\/tr><\/thead><tbody>"+rows+"<\/tbody><\/table><\/body><\/html>";
   pdfOverlay("Inspection Report",html);
 }
 
