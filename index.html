@@ -650,6 +650,20 @@ function buildHydCalc(order, saveCallback) {
     p2Stroke: saved.p2Stroke||500
   };
 
+  // ---- PUMP & MOTOR REFERENCE DATA ----
+  var MOTOR_HP=[3,5,7.5,10,12,15,20,25,30];
+  var LPM_CC={13:10,20:15,30:21,36:29.5,39:31.5,45:39,51:43,56:47.5,60:47,70:57,90:75,110:88,140:115,170:150};
+  var PUMP_TYPES=[
+    {id:"pvr50",   name:"PVR-50",      lpm1:[13,20,30,36,39,45,51,56], lpm2:null},
+    {id:"pvr150",  name:"PVR-150",     lpm1:[60,70,90,110,140,170],    lpm2:null},
+    {id:"pvr1050", name:"PVR-1050",    lpm1:[12,15,17],                lpm2:[39,45,51]},
+    {id:"pvr50150",name:"PVR-50150",   lpm1:[13,20,26,30],             lpm2:[60,70,90,110,140,170]}
+  ];
+  // For pvr1050 lpm1=12/15/17 map to nearest cc: 12→10, 15→10, 17→15 (approx)
+  var LPM_CC_EXT=Object.assign({},LPM_CC,{12:9.5,15:10,17:13,26:19.5});
+  function lpmToCC(lpm){return LPM_CC_EXT[lpm]||LPM_CC[lpm]||lpm*0.7;}
+  function pumpFlowAtRPM(ccrev,rpm){return (ccrev*rpm)/1000;}
+
   var wrap=dv(""); wrap.style.cssText="display:flex;flex-direction:column;gap:10px";
 
   // Helper: labeled number input
@@ -687,10 +701,28 @@ function buildHydCalc(order, saveCallback) {
     return c;
   }
 
+  // === MOTOR & PUMP DATA ===
+  var LPM_DISP={"13": 10, "20": 15, "30": 21, "36": 29.5, "39": 31.5, "45": 39, "51": 43, "56": 47.5, "60": 47, "70": 57, "90": 75, "110": 88, "140": 115, "170": 150};
+  var PUMP_TYPES=[{"name": "PVR-50", "options": [13, 20, 30, 36, 39, 45, 51, 56]}, {"name": "PVR-150", "options": [60, 70, 90, 110, 140, 170]}, {"name": "PVR-1050 (Dual)", "lpm1": [12, 15, 17], "lpm2": [39, 45, 51], "dual": true}, {"name": "PVR-50150 (Dual)", "lpm1": [13, 20, 26, 30], "lpm2": [60, 70, 90, 110, 140, 170], "dual": true}];
+  var MOTOR_HP_LIST=[3,5,7.5,10,12,15,20,25,30];
+  function selSt(){return "border:1.5px solid #c5cae9;border-radius:8px;padding:7px 8px;font-size:13px;font-weight:700;font-family:Arial,sans-serif;background:#fff;width:100%;box-sizing:border-box";}
+
   // === MOTOR (shared) ===
   var motorCard=secCard("#1565c0"); motorCard.appendChild(secHdr("⚡ Motor (Shared)","#1565c0"));
   var motorBody=dv(""); motorBody.style.cssText="padding:12px;display:flex;gap:8px;flex-wrap:wrap";
-  ap(motorBody, ni("Motor Power","motorHP","HP"), ni("Motor RPM","motorRPM","RPM"));
+  var mhpWrap=dv(""); mhpWrap.style.cssText="flex:1;min-width:120px;display:flex;flex-direction:column;gap:4px";
+  var mhpLbl=dv("","Motor Power"); mhpLbl.style.cssText="font-size:10px;font-weight:700;color:#555;text-transform:uppercase";
+  var mhpSel=mk("select"); mhpSel.style.cssText=selSt();
+  MOTOR_HP_LIST.forEach(function(hp){var o=mk("option");o.value=hp;o.textContent=hp+" HP";if(hp===D.motorHP)o.selected=true;mhpSel.appendChild(o);});
+  mhpSel.onchange=function(){D.motorHP=parseFloat(mhpSel.value);calcAll();};
+  ap(mhpWrap,mhpLbl,mhpSel);
+  var mrpmWrap=dv(""); mrpmWrap.style.cssText="flex:1;min-width:120px;display:flex;flex-direction:column;gap:4px";
+  var mrpmLbl=dv("","Motor RPM"); mrpmLbl.style.cssText="font-size:10px;font-weight:700;color:#555;text-transform:uppercase";
+  var mrpmInp=mk("input"); mrpmInp.type="number"; mrpmInp.value=D.motorRPM; mrpmInp.step="10";
+  mrpmInp.style.cssText=selSt();
+  mrpmInp.oninput=function(){D.motorRPM=parseFloat(mrpmInp.value)||0;calcAll();};
+  ap(mrpmWrap,mrpmLbl,mrpmInp);
+  ap(motorBody,mhpWrap,mrpmWrap);
   motorCard.appendChild(motorBody);
   wrap.appendChild(motorCard);
 
@@ -702,11 +734,81 @@ function buildHydCalc(order, saveCallback) {
     var body=dv(""); body.style.cssText="padding:12px;display:flex;flex-direction:column;gap:10px";
 
     // Pump inputs
-    var pumpLbl=dv("","Pump "+pNum+" Settings"); pumpLbl.style.cssText="font-size:11px;font-weight:700;color:"+color+";text-transform:uppercase;border-bottom:1px solid #eee;padding-bottom:4px";
-    var pumpRow=dv("fl gap8"); pumpRow.style.flexWrap="wrap";
-    pumpRow.appendChild(ni("Pump Displacement",prefix+"Disp","cc/rev"));
-    body.appendChild(pumpLbl); body.appendChild(pumpRow);
+    var pumpLbl=dv("","Pump "+pNum+" Settings"); pumpLbl.style.cssText="font-size:11px;font-weight:700;color:"+color+";text-transform:uppercase;border-bottom:1px solid #eee;padding-bottom:4px;margin-bottom:6px";
+    body.appendChild(pumpLbl);
 
+    // LPM→CC lookup
+    function lpmToCC(lpm){var m={13:10,20:15,30:21,36:29.5,39:31.5,45:39,51:43,56:47.5,60:47,70:57,90:75,110:88,140:115,170:150};return m[lpm]||0;}
+
+    // Row 1: Pump Type selector
+    var ptRow=dv("fl gap8"); ptRow.style.cssText="flex-wrap:wrap";
+    var ptWrap=dv(""); ptWrap.style.cssText="flex:1;min-width:140px;display:flex;flex-direction:column;gap:3px";
+    var ptLbl=dv("","Pump Type"); ptLbl.style.cssText="font-size:10px;font-weight:700;color:#555;text-transform:uppercase";
+    var ptSel=mk("select"); ptSel.style.cssText=selSt();
+    var pt0=mk("option"); pt0.value=""; pt0.textContent="-- Select Pump --"; ptSel.appendChild(pt0);
+    [{n:"PVR-50",v:"pvr50"},{n:"PVR-150",v:"pvr150"},{n:"PVR-1050 (Dual)",v:"pvr1050"},{n:"PVR-50150 (Dual)",v:"pvr50150"}].forEach(function(p){var o=mk("option");o.value=p.v;o.textContent=p.n;ptSel.appendChild(o);});
+    ap(ptWrap,ptLbl,ptSel); ptRow.appendChild(ptWrap);
+
+    // LPM1 selector
+    var lpm1Wrap=dv(""); lpm1Wrap.style.cssText="flex:1;min-width:100px;display:flex;flex-direction:column;gap:3px";
+    var lpm1Lbl=dv("","Flow (LPM)"); lpm1Lbl.style.cssText="font-size:10px;font-weight:700;color:#555;text-transform:uppercase";
+    var lpm1Sel=mk("select"); lpm1Sel.style.cssText=selSt();
+    ap(lpm1Wrap,lpm1Lbl,lpm1Sel); ptRow.appendChild(lpm1Wrap);
+
+    // LPM2 selector (dual pumps only)
+    var lpm2Wrap=dv(""); lpm2Wrap.style.cssText="flex:1;min-width:100px;display:flex;flex-direction:column;gap:3px;display:none";
+    var lpm2Lbl=dv("","Flow 2 (LPM)"); lpm2Lbl.style.cssText="font-size:10px;font-weight:700;color:#555;text-transform:uppercase";
+    var lpm2Sel=mk("select"); lpm2Sel.style.cssText=selSt();
+    ap(lpm2Wrap,lpm2Lbl,lpm2Sel); ptRow.appendChild(lpm2Wrap);
+
+    // Displacement display (auto-filled, read-only)
+    var dispWrap=dv(""); dispWrap.style.cssText="flex:1;min-width:100px;display:flex;flex-direction:column;gap:3px";
+    var dispLbl=dv("","Displacement"); dispLbl.style.cssText="font-size:10px;font-weight:700;color:#555;text-transform:uppercase";
+    var dispVal=dv("",D[prefix+"Disp"]+" cc/rev"); dispVal.style.cssText="border:1.5px solid #e0e0e0;border-radius:8px;padding:7px 8px;font-size:13px;font-weight:700;background:#f5f7ff;color:#1565c0";
+    ap(dispWrap,dispLbl,dispVal); ptRow.appendChild(dispWrap);
+
+    body.appendChild(ptRow);
+
+    // Manual override row
+    var manRow=dv("fl ai gap8"); manRow.style.cssText="flex-wrap:wrap;margin-top:6px";
+    manRow.appendChild(ni("Or enter displacement manually",prefix+"Disp","cc/rev"));
+    body.appendChild(manRow);
+
+    // Wire pump type → LPM options
+    (function(ps,l1s,l1w,l2s,l2w,dsp,pfx){
+      var PVR={
+        pvr50:{lpm1:[13,20,30,36,39,45,51,56],dual:false},
+        pvr150:{lpm1:[60,70,90,110,140,170],dual:false},
+        pvr1050:{lpm1:[12,15,17],lpm2:[39,45,51],dual:true},
+        pvr50150:{lpm1:[13,20,26,30],lpm2:[60,70,90,110,140,170],dual:true}
+      };
+      function fillSel(sel,vals){
+        sel.innerHTML="";
+        var o0=mk("option");o0.value="";o0.textContent="-- Select --";sel.appendChild(o0);
+        vals.forEach(function(v){var o=mk("option");o.value=v;o.textContent=v+" LPM ("+lpmToCC(v)+" cc/rev)";sel.appendChild(o);});
+      }
+      function updateDisp(){
+        var l1=parseFloat(l1s.value)||0;
+        var l2=parseFloat(l2s.value)||0;
+        var cc1=l1?lpmToCC(l1):0;
+        var cc2=l2?lpmToCC(l2):0;
+        var total=cc1+cc2;
+        if(total>0){D[pfx+"Disp"]=total;dsp.textContent=total+" cc/rev";}
+        calcAll();
+      }
+      ps.onchange=function(){
+        var pt=PVR[ps.value];
+        if(!pt){l1w.style.display="none";l2w.style.display="none";return;}
+        l1w.style.display="flex"; fillSel(l1s,pt.lpm1);
+        if(pt.dual){l2w.style.display="flex"; fillSel(l2s,pt.lpm2);}
+        else{l2w.style.display="none"; l2s.innerHTML="";}
+      };
+      l1s.onchange=updateDisp; l2s.onchange=updateDisp;
+      // Initially hide LPM selectors
+      l1w.style.display="none"; l2w.style.display="none";
+    })(ptSel,lpm1Sel,lpm1Wrap,lpm2Sel,lpm2Wrap,dispVal,prefix);
+
+    // Cylinder inputs
     // Cylinder inputs
     var cylLbl=dv("","Cylinder "+pNum+" Dimensions"); cylLbl.style.cssText="font-size:11px;font-weight:700;color:"+color+";text-transform:uppercase;border-bottom:1px solid #eee;padding-bottom:4px;margin-top:4px";
     var cylRow=dv("fl gap8"); cylRow.style.flexWrap="wrap";
