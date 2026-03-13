@@ -564,7 +564,7 @@ function buildCombinedCalc(){
     var maxP=totalFlow>0?((kW*600)/totalFlow):0;
     var pd=D.pistonDia/10; var rd=D.rodDia/10;
     var Ab=Math.PI*pd*pd/4; var Aa=Math.PI*(pd*pd-rd*rd)/4;
-    var tonn=Ab>0?(maxP*Ab)/(10*9.81):0;
+    var tonn=Ab>0?(maxP*Ab)/(100*9.81):0;
     var extSpd=Ab>0?(totalFlow*1000/Ab/100):0;
     var retSpd=Aa>0?(totalFlow*1000/Aa/100):0;
     var extT=extSpd>0?(D.stroke/1000/(extSpd/60)):0;
@@ -869,7 +869,7 @@ function buildHydCalc(order, saveCallback) {
     var Aann=Math.PI*(pd*pd-rd*rd)/4; // cm²
 
     var tonnage=Aann>0?(maxP*Abore/10):0; // kN → tonnes approx (bar×cm²/10 = kN, /9.81 = T)
-    tonnage=(maxP*Abore)/(10*9.81);
+    tonnage=(maxP*Abore)/(100*9.81);
 
     var extSpd=Abore>0?(flow/(Abore*10/60)):0; // m/min: (L/min)/(cm²) × (1000cm³/L)/(10000cm²/m²)/100
     // Simplified: flow L/min / (Abore cm²) * (1000/10000) * 100 = flow/Abore * 10
@@ -1056,7 +1056,7 @@ function drawOrder() {
   pg.appendChild(tabs);
   if (S.otab==="details") pg.appendChild(drawDetails(order));
   else if (S.otab==="inspection") pg.appendChild(drawInspect(order,insp,allKeys,pass,fail,filled,pct));
-  else pg.appendChild(drawSummary(insp));
+  else pg.appendChild(drawSummary(insp,order));
   return pg;
 }
 
@@ -1065,164 +1065,334 @@ function drawDetails(order) {
   var hd=dv("fl ai gap8"); hd.style.marginBottom="12px";
   var ht=dv("","Machine Specs"); ht.style.cssText="font-size:13px;font-weight:700;color:#1565c0;text-transform:uppercase";
   ap(hd,ht,specs?bdg("🔒 Locked","#e8f5e9","#2e7d32"):""); card.appendChild(hd);
-  if (specs) {
-    // View mode - show all specs + hydraulic results in one table
-    var PUMP_OPTS=[{"label":"Select displacement...","cc":0},{"label":"4 cc/rev","cc":4},{"label":"6 cc/rev","cc":6},{"label":"7 cc/rev","cc":7},{"label":"9 cc/rev","cc":9},{"label":"11 cc/rev","cc":11},{"label":"14 cc/rev","cc":14},{"label":"16 cc/rev","cc":16},{"label":"18 cc/rev","cc":18},{"label":"22 cc/rev","cc":22},{"label":"25 cc/rev","cc":25},{"label":"28 cc/rev","cc":28},{"label":"32 cc/rev","cc":32},{"label":"35 cc/rev","cc":35},{"label":"40 cc/rev","cc":40},{"label":"45 cc/rev","cc":45},{"label":"46 cc/rev","cc":46},{"label":"51 cc/rev","cc":51},{"label":"56 cc/rev","cc":56},{"label":"63 cc/rev","cc":63},{"label":"70 cc/rev","cc":70},{"label":"Custom","cc":-1}];
-    var sp=specs;
-    var mClean=sp.model?(sp.model.toUpperCase().replace(/ /g,"")):"";var isDouble=mClean.indexOf("1050")!==-1||mClean.indexOf("50150")!==-1;
 
-    // Basic specs rows
-    var specFields=[["Model",sp.model],["Motor",sp.motor],["Motor RPM",sp.motorRPM],
-      ["Pump 1 Displacement",sp.p1Disp?(sp.p1Disp+" cc/rev"):"—"],
-      isDouble?["Pump 2 Displacement",sp.p2Disp?(sp.p2Disp+" cc/rev"):"—"]:null,
-      ["Tank Size",sp.tank],["Cylinder 1 — Piston/Rod",sp.p1PistonDia?(sp.p1PistonDia+"mm / "+sp.p1RodDia+"mm"):"—"],
-      ["Cylinder 1 — Stroke",sp.p1Stroke?(sp.p1Stroke+"mm"):"—"],
-      isDouble?["Cylinder 2 — Piston/Rod",sp.p2PistonDia?(sp.p2PistonDia+"mm / "+sp.p2RodDia+"mm"):"—"]:null,
-      isDouble?["Cylinder 2 — Stroke",sp.p2Stroke?(sp.p2Stroke+"mm"):"—"]:null,
-      ["Specifications",sp.spec],["Accessories",sp.acc]
-    ].filter(function(r){return r&&r[1];});
-    specFields.forEach(function(a){
+  var MOTOR_HP_OPTS=[3, 5, 7.5, 10, 12.5, 15, 20, 25, 30];
+  var LPM_OPTS=[10, 15, 20, 25, 30, 40, 50, 60, 70, 80, 100, 120];
+  var PUMP_MODELS=["PVR 50","PVR 150","PVR 1050","PVR 50150"];
+  var DOUBLE_PUMPS=["PVR 1050","PVR 50150"];
+
+  function isDouble(model){ return DOUBLE_PUMPS.indexOf(model)!==-1; }
+
+  if (specs) {
+    // ---- VIEW MODE ----
+    var sp=specs;
+    // Unlock button in header
+    var unlockBtn=bt("","✏ Edit Specs",function(){
+      var up=Object.assign({},order,{specs:null});
+      saveOrder(up);draw();
+    });
+    unlockBtn.style.cssText="background:#fff3e0;color:#e65100;border:1.5px solid #ffcc02;border-radius:8px;padding:5px 12px;font-size:11px;font-weight:700;cursor:pointer;margin-left:auto";
+    hd.appendChild(unlockBtn);
+    var dbl=isDouble(sp.pump||"");
+
+    // Basic spec rows
+    [["Model",sp.model],["Motor",sp.motorHP?(sp.motorHP+" HP @ 1440 RPM"):""],
+     ["Pump Model",sp.pump],
+     ["Pump 1",(sp.pumpModel1||sp.pump||"")+(sp.cc1?" — "+sp.cc1+"cc/rev ("+((sp.cc1*1440)/1000).toFixed(1)+" LPM)":"")],
+     dbl?["Pump 2",(sp.pumpModel2||"")+(sp.cc2?" — "+sp.cc2+"cc/rev ("+((sp.cc2*1440)/1000).toFixed(1)+" LPM)":"")]:null,
+     ["Cylinder 1",(sp.p1PistonDia&&sp.p1RodDia)?(sp.p1PistonDia+"mm bore / "+sp.p1RodDia+"mm rod / "+sp.p1Stroke+"mm stroke"):""],
+     dbl?["Cylinder 2",(sp.p2PistonDia&&sp.p2RodDia)?(sp.p2PistonDia+"mm bore / "+sp.p2RodDia+"mm rod / "+sp.p2Stroke+"mm stroke"):"—"]:null,
+     ["Tank Size",sp.tank],["Specifications",sp.spec],["Accessories",sp.acc]
+    ].filter(function(r){return r&&r[1];}).forEach(function(a){
       var lf=dv("lf"); ap(lf,dv("ll",a[0]),dv("lv",a[1])); card.appendChild(lf);
     });
 
-    // Hydraulic results section
+    // ---- HYDRAULIC PERFORMANCE TABLE ----
+    var RPM2=1440;
     var kW=(parseFloat(sp.motorHP)||0)*0.7457;
-    var rpm=parseFloat(sp.motorRPM)||0;
+    var lpm1=sp.cc1?(sp.cc1*RPM2/1000):parseFloat(sp.lpm1)||0;
+    var lpm2=sp.cc2?(sp.cc2*RPM2/1000):parseFloat(sp.lpm2)||0;
 
-    function calcCylResults(disp,pd,rd,stroke){
-      var flow=(disp*rpm)/1000;
-      var maxP=flow>0?((kW*600)/flow):0;
-      var Abore=Math.PI*(pd/10)*(pd/10)/4;
-      var Aann=Math.PI*((pd/10)*(pd/10)-(rd/10)*(rd/10))/4;
-      var tonn=Abore>0?(maxP*Abore)/(10*9.81):0;
-      var extSpd=Abore>0?(flow*1000/Abore/100):0;
-      var retSpd=Aann>0?(flow*1000/Aann/100):0;
-      var extT=extSpd>0?(stroke/1000/(extSpd/60)):0;
-      var retT=retSpd>0?(stroke/1000/(retSpd/60)):0;
-      return {flow:flow.toFixed(1),maxP:maxP.toFixed(0),tonn:tonn.toFixed(2),
-              extSpd:extSpd.toFixed(3),retSpd:retSpd.toFixed(3),extT:extT.toFixed(1),retT:retT.toFixed(1)};
+    function cylCalc(lpm,pd,rd,stroke){
+      var maxP=lpm>0?((kW*600)/lpm):0;
+      var Abcm=Math.PI*(pd/10)*(pd/10)/4;
+      var Aacm=Math.PI*((pd/10)*(pd/10)-(rd/10)*(rd/10))/4;
+      var tonn=Abcm>0?(maxP*Abcm)/(100*9.81):0;
+      var extSpd=Abcm>0?(lpm*1000/Abcm/100):0;
+      var retSpd=Aacm>0?(lpm*1000/Aacm/100):0;
+      var extT=extSpd>0?((stroke/1000)/(extSpd/60)):0;
+      var retT=retSpd>0?((stroke/1000)/(retSpd/60)):0;
+      return {flow:lpm.toFixed(1),maxP:maxP.toFixed(0),tonn:tonn.toFixed(2),
+              extSpd:extSpd.toFixed(3),retSpd:retSpd.toFixed(3),
+              extT:extT.toFixed(1),retT:retT.toFixed(1)};
     }
 
-    if(sp.p1Disp&&sp.p1PistonDia&&sp.motorRPM&&sp.motorHP){
-      var r1=calcCylResults(parseFloat(sp.p1Disp),parseFloat(sp.p1PistonDia),parseFloat(sp.p1RodDia)||0,parseFloat(sp.p1Stroke)||500);
-      var divider=dv(""); divider.style.cssText="margin:10px 0 6px;border-top:2px solid #1565c0;padding-top:8px";
-      var resTitle=dv("","⚡ Hydraulic Performance"); resTitle.style.cssText="font-size:12px;font-weight:700;color:#1565c0;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px";
-      divider.appendChild(resTitle); card.appendChild(divider);
+    if(lpm1&&sp.p1PistonDia&&sp.motorHP){
+      var r1raw=cylCalc(lpm1,parseFloat(sp.p1PistonDia),parseFloat(sp.p1RodDia)||0,parseFloat(sp.p1Stroke)||500);
+      var r2=dbl&&lpm2&&sp.p2PistonDia?cylCalc(lpm2,parseFloat(sp.p2PistonDia),parseFloat(sp.p2RodDia)||0,parseFloat(sp.p2Stroke)||500):null;
+      // Pump 1 (bigger LPM) drives 2 main cylinders: tonnage x2, speed /2, time x2
+      var r1=r1raw?{flow:r1raw.flow,maxP:r1raw.maxP,
+        tonn:(parseFloat(r1raw.tonn)*2).toFixed(2),
+        extSpd:(parseFloat(r1raw.extSpd)/2).toFixed(3),
+        retSpd:(parseFloat(r1raw.retSpd)/2).toFixed(3),
+        extT:(parseFloat(r1raw.extT)*2).toFixed(1),
+        retT:(parseFloat(r1raw.retT)*2).toFixed(1)}:null; // always 2 main cylinders
 
-      // Table with results
-      var resTbl=mk("table"); resTbl.style.cssText="width:100%;border-collapse:collapse;font-size:12px";
-      var rHead=mk("thead"); var rHr=mk("tr");
-      var cols=["Parameter","Unit",isDouble?"Pump 1 — Cyl 1":"Result"];
-      if(isDouble) cols.push("Pump 2 — Cyl 2");
-      cols.forEach(function(h){
+      var divdr2=dv(""); divdr2.style.cssText="margin:10px 0 6px;border-top:2px solid #1565c0;padding-top:8px";
+      var pTitle=dv("","⚡ Hydraulic Performance"); pTitle.style.cssText="font-size:12px;font-weight:700;color:#1565c0;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px";
+      divdr2.appendChild(pTitle); card.appendChild(divdr2);
+
+      var tbl=mk("table"); tbl.style.cssText="width:100%;border-collapse:collapse;font-size:12px;border-radius:8px;overflow:hidden";
+      var thead=mk("thead"); var thr=mk("tr");
+      ["Parameter","Unit",dbl?"Pump 1 (Main Cylinders)":"Value",dbl?"Pump 2 (Lifter Cylinder)":null].filter(Boolean).forEach(function(h){
         var th=mk("th"); th.textContent=h;
-        th.style.cssText="padding:6px 8px;background:#1565c0;color:#fff;font-size:10px;font-weight:700;text-transform:uppercase;text-align:"+(h==="Parameter"?"left":"center");
-        rHr.appendChild(th);
+        th.style.cssText="padding:7px 8px;background:#1565c0;color:#fff;font-size:10px;font-weight:700;text-transform:uppercase;text-align:"+(h==="Parameter"?"left":"center");
+        thr.appendChild(th);
       });
-      rHead.appendChild(rHr); resTbl.appendChild(rHead);
+      thead.appendChild(thr); tbl.appendChild(thead);
 
-      var r2=isDouble&&sp.p2Disp&&sp.p2PistonDia?calcCylResults(parseFloat(sp.p2Disp),parseFloat(sp.p2PistonDia),parseFloat(sp.p2RodDia)||0,parseFloat(sp.p2Stroke)||500):null;
-
-      var rows=[
-        ["Flow Rate","L/min",r1.flow,r2?r2.flow:null,"#e3f2fd","#1565c0"],
-        ["Max Pressure","bar",r1.maxP,r2?r2.maxP:null,"#ffebee","#c62828"],
-        ["Tonnage","Tonnes",r1.tonn,r2?r2.tonn:null,"#e8f5e9","#2e7d32"],
-        ["Extend Speed","m/min",r1.extSpd,r2?r2.extSpd:null,"#fff8e1","#e65100"],
-        ["Return Speed","m/min",r1.retSpd,r2?r2.retSpd:null,"#f3e5f5","#6a1b9a"],
-        ["Extend Time","sec",r1.extT,r2?r2.extT:null,"#e0f2f1","#00695c"],
-        ["Return Time","sec",r1.retT,r2?r2.retT:null,"#ede7f6","#4527a0"],
-      ];
-      var rBody=mk("tbody");
-      rows.forEach(function(row,ri){
+      var tbody=mk("tbody");
+      [["Flow Rate","LPM",r1.flow,r2?r2.flow:null,"#e3f2fd","#1565c0"],
+       ["Max Pressure","bar",r1.maxP,r2?r2.maxP:null,"#ffebee","#c62828"],
+       ["Tonnage","T",r1.tonn,r2?r2.tonn:null,"#e8f5e9","#2e7d32"],
+       ["Extend Speed","m/min",r1.extSpd,r2?r2.extSpd:null,"#fff8e1","#e65100"],
+       ["Return Speed","m/min",r1.retSpd,r2?r2.retSpd:null,"#f3e5f5","#6a1b9a"],
+       ["Extend Time","sec",r1.extT,r2?r2.extT:null,"#e0f2f1","#00695c"],
+       ["Return Time","sec",r1.retT,r2?r2.retT:null,"#ede7f6","#4527a0"]
+      ].forEach(function(row){
         var tr=mk("tr"); tr.style.borderBottom="1px solid #f0f0f0";
-        var td1=mk("td"); td1.textContent=row[0]; td1.style.cssText="padding:6px 8px;font-weight:700;font-size:12px";
-        var td2=mk("td"); td2.textContent=row[1]; td2.style.cssText="padding:6px 8px;text-align:center;color:#888;font-size:11px";
+        var td1=mk("td"); td1.textContent=row[0]; td1.style.cssText="padding:6px 8px;font-weight:700";
+        var td2=mk("td"); td2.textContent=row[1]; td2.style.cssText="padding:6px 8px;text-align:center;color:#999;font-size:11px";
         var td3=mk("td"); td3.textContent=row[2]; td3.style.cssText="padding:6px 8px;text-align:center;font-weight:900;font-size:14px;color:"+row[5]+";background:"+row[4];
         ap(tr,td1,td2,td3);
-        if(isDouble){
-          var td4=mk("td"); td4.textContent=row[3]||"—"; td4.style.cssText="padding:6px 8px;text-align:center;font-weight:900;font-size:14px;color:"+row[5]+";background:"+row[4];
-          tr.appendChild(td4);
-        }
-        rBody.appendChild(tr);
+        if(dbl){var td4=mk("td"); td4.textContent=row[3]||"—"; td4.style.cssText="padding:6px 8px;text-align:center;font-weight:900;font-size:14px;color:"+row[5]+";background:"+row[4]; tr.appendChild(td4);}
+        tbody.appendChild(tr);
       });
-      resTbl.appendChild(rBody);
-      card.appendChild(resTbl);
+      tbl.appendChild(tbody); card.appendChild(tbl);
     }
 
   } else {
-    // Edit mode
-    var PUMP_OPTS2=[{"label":"Select displacement...","cc":0},{"label":"4 cc/rev","cc":4},{"label":"6 cc/rev","cc":6},{"label":"7 cc/rev","cc":7},{"label":"9 cc/rev","cc":9},{"label":"11 cc/rev","cc":11},{"label":"14 cc/rev","cc":14},{"label":"16 cc/rev","cc":16},{"label":"18 cc/rev","cc":18},{"label":"22 cc/rev","cc":22},{"label":"25 cc/rev","cc":25},{"label":"28 cc/rev","cc":28},{"label":"32 cc/rev","cc":32},{"label":"35 cc/rev","cc":35},{"label":"40 cc/rev","cc":40},{"label":"45 cc/rev","cc":45},{"label":"46 cc/rev","cc":46},{"label":"51 cc/rev","cc":51},{"label":"56 cc/rev","cc":56},{"label":"63 cc/rev","cc":63},{"label":"70 cc/rev","cc":70},{"label":"Custom","cc":-1}];
-    var f={model:"",motorHP:"",motorRPM:"",p1Disp:"",p1PistonDia:"",p1RodDia:"",p1Stroke:"",p2Disp:"",p2PistonDia:"",p2RodDia:"",p2Stroke:"",tank:"",spec:"",acc:""};
+    // ---- EDIT MODE ----
+    var PUMP_DATA={
+      "PVR 50":[
+        {model:"PVR50-13",cc:10.0},{model:"PVR50-20",cc:15.0},{model:"PVR50-26",cc:21.0},
+        {model:"PVR50-30",cc:24.5},{model:"PVR50-36",cc:29.5},{model:"PVR50-39",cc:31.5},
+        {model:"PVR50-45",cc:39.0},{model:"PVR50-51",cc:43.0},{model:"PVR50-56",cc:47.5}
+      ],
+      "PVR 150":[
+        {model:"PVR150-60",cc:47},{model:"PVR150-70",cc:57},{model:"PVR150-90",cc:75},
+        {model:"PVR150-110",cc:88},{model:"PVR150-140",cc:115},{model:"PVR150-170",cc:135}
+      ],
+      "PVR 1050":{
+        p1:[{model:"PVR50-45",cc:39.0},{model:"PVR50-51",cc:43.0}],
+        p2:[{model:"PVR50-13",cc:10.0}]
+      },
+      "PVR 50150":{
+        p1:[
+          {model:"PVR150-60",cc:47},{model:"PVR150-70",cc:57},{model:"PVR150-90",cc:75},
+          {model:"PVR150-110",cc:88},{model:"PVR150-140",cc:115},{model:"PVR150-170",cc:135}
+        ],
+        p2:[{model:"PVR50-13",cc:10.0},{model:"PVR50-20",cc:15.0}]
+      }
+    };
+    var PUMP_MODELS2=["PVR 50","PVR 150","PVR 1050","PVR 50150"];
+    var DOUBLE_PUMPS2=["PVR 1050","PVR 50150"];
+    var MOTOR_HP2=[3,5,7.5,10,12.5,15,20,25,30];
+    var RPM2=1440;
+    function isDbl2(m){return DOUBLE_PUMPS2.indexOf(m)!==-1;}
 
-    // Detect double pump from model name
-    function isDoublePump(modelName){
-      if(!modelName) return false;
-      var m=modelName.toUpperCase().replace(/\s/g,"");
-      return m.indexOf("1050")!==-1||m.indexOf("50150")!==-1;
-    }
-    var pump2Row=null;
-    var cyl2Row=null;
+    var f={model:"",motorHP:"",pump:"",pumpModel1:"",cc1:0,pumpModel2:"",cc2:0,
+           p1PistonDia:"",p1RodDia:"",p1Stroke:"",p2PistonDia:"",p2RodDia:"",p2Stroke:"",
+           tank:"",spec:"",acc:""};
+    if(order.specs) Object.assign(f,order.specs);
 
-    function pumpDropdown(key){
-      var wrap=dv(""); wrap.style.cssText="display:flex;flex-direction:column;gap:3px;flex:1";
-      var customInpWrap=dv(""); customInpWrap.style.display="none";
-      var sel=mk("select"); sel.style.cssText="border:1px solid #e0e0e0;border-radius:8px;padding:8px 10px;font-size:13px;font-family:Arial,sans-serif;background:#fff;width:100%";
-      PUMP_OPTS2.forEach(function(o){
-        var opt=mk("option"); opt.value=o.cc; opt.textContent=o.label; sel.appendChild(opt);
+    function mkSel(opts,ph,curVal,onChange){
+      var s=mk("select"); s.style.cssText="width:100%;border:1.5px solid #e0e0e0;border-radius:8px;padding:9px 10px;font-size:13px;font-weight:700;font-family:Arial,sans-serif;background:#fff;color:#333";
+      var def=mk("option"); def.value=""; def.textContent=ph; def.disabled=true; s.appendChild(def);
+      var hit=false;
+      opts.forEach(function(o){
+        var op=mk("option"); op.value=o.v; op.textContent=o.l;
+        if(o.v===String(curVal)){op.selected=true;hit=true;}
+        s.appendChild(op);
       });
-      var customInp=mk("input"); customInp.type="number"; customInp.placeholder="Enter cc/rev";
-      customInp.style.cssText="border:1px solid #e0e0e0;border-radius:8px;padding:8px 10px;font-size:13px;font-family:Arial,sans-serif;width:100%;box-sizing:border-box;margin-top:4px";
-      customInpWrap.appendChild(customInp);
-      sel.onchange=function(){
-        if(parseInt(sel.value)===-1){customInpWrap.style.display="block";f[key]="";} 
-        else{customInpWrap.style.display="none";f[key]=sel.value>0?sel.value:"";}
-      };
-      customInp.oninput=function(){f[key]=customInp.value;};
-      ap(wrap,sel,customInpWrap); return wrap;
+      if(!hit) s.selectedIndex=0;
+      s.onchange=function(){onChange(s.value);updatePreview2();};
+      return s;
+    }
+    function nf(label,key,ph){
+      var inp=ip(ph,f[key]||"",function(v){f[key]=v;updatePreview2();});
+      return fg(label,inp);
     }
 
-    card.appendChild(fg("Model Number",ip("e.g. PVR 50, PVR 1050","",function(v){
-      f.model=v;
-      if(pump2Row) pump2Row.style.display=isDoublePump(v)?"flex":"none";
-      if(cyl2Row) cyl2Row.style.display=isDoublePump(v)?"flex":"none";
-    })));
-    card.appendChild(fg("Motor Power (HP)",ip("e.g. 7.5","",function(v){f.motorHP=v;})));
-    card.appendChild(fg("Motor RPM",ip("e.g. 1440","",function(v){f.motorRPM=v;})));
-    card.appendChild(fg("Tank Size",ip("e.g. 200L","",function(v){f.tank=v;})));
+    var motorSel2=mkSel(MOTOR_HP2.map(function(h){return {v:h+" HP",l:h+" HP"};}),
+      "Select Motor HP...",f.motorHP,function(v){f.motorHP=v;});
+    card.appendChild(fg("Motor Power",motorSel2));
 
-    // Pump 1
-    var p1Wrap=dv(""); p1Wrap.style.cssText="display:flex;flex-direction:column;gap:4px";
-    var p1Lbl=mk("label"); p1Lbl.textContent="Pump 1 Displacement"; p1Lbl.style.cssText="font-size:13px;font-weight:700;color:#555;display:block";
-    ap(p1Wrap,p1Lbl,pumpDropdown("p1Disp")); card.appendChild(p1Wrap);
+    var lpm1W=dv(""); lpm1W.style.display="none";
+    var lpm2W=dv(""); lpm2W.style.display="none";
+    var cyl2W=dv(""); cyl2W.style.display="none";
 
-    // Pump 2 (hidden unless double)
-    pump2Row=dv(""); pump2Row.style.cssText="display:none;flex-direction:column;gap:4px";
-    var p2Lbl=mk("label"); p2Lbl.textContent="Pump 2 Displacement"; p2Lbl.style.cssText="font-size:13px;font-weight:700;color:#555;display:block";
-    ap(pump2Row,p2Lbl,pumpDropdown("p2Disp")); card.appendChild(pump2Row);
+    function buildPumpSels(pm){
+      lpm1W.innerHTML=""; lpm2W.innerHTML="";
+      if(!pm){lpm1W.style.display="none";lpm2W.style.display="none";cyl2W.style.display="none";return;}
+      var dbl=isDbl2(pm);
+      var p1list=dbl?PUMP_DATA[pm].p1:PUMP_DATA[pm];
+      var p2list=dbl?PUMP_DATA[pm].p2:[];
 
-    // Cylinder 1
-    card.appendChild(fg("Cylinder 1 — Piston Dia (mm)",ip("e.g. 100","",function(v){f.p1PistonDia=v;})));
-    card.appendChild(fg("Cylinder 1 — Rod Dia (mm)",ip("e.g. 50","",function(v){f.p1RodDia=v;})));
-    card.appendChild(fg("Cylinder 1 — Stroke (mm)",ip("e.g. 500","",function(v){f.p1Stroke=v;})));
+      var p1lbl=dv("","Pump 1 — Main Cylinders (Higher LPM)");
+      p1lbl.style.cssText="font-size:11px;font-weight:700;color:#1565c0;text-transform:uppercase;margin-bottom:4px";
+      var p1s=mkSel(p1list.map(function(p){
+        return {v:p.model,l:p.model+" ("+p.cc+"cc = "+((p.cc*RPM2)/1000).toFixed(1)+" LPM)"};
+      }),"Select...",f.pumpModel1,function(v){
+        f.pumpModel1=v;
+        var found=p1list.filter(function(p){return p.model===v;})[0];
+        f.cc1=found?found.cc:0;
+      });
+      ap(lpm1W,p1lbl,p1s); lpm1W.style.display="block";
 
-    // Cylinder 2 (hidden unless double)
-    cyl2Row=dv(""); cyl2Row.style.display="none";
-    cyl2Row.appendChild(fg("Cylinder 2 — Piston Dia (mm)",ip("e.g. 80","",function(v){f.p2PistonDia=v;})));
-    cyl2Row.appendChild(fg("Cylinder 2 — Rod Dia (mm)",ip("e.g. 40","",function(v){f.p2RodDia=v;})));
-    cyl2Row.appendChild(fg("Cylinder 2 — Stroke (mm)",ip("e.g. 500","",function(v){f.p2Stroke=v;})));
-    card.appendChild(cyl2Row);
+      if(dbl){
+        var p2lbl=dv("","Pump 2 — Lifter Cylinder (Lower LPM)");
+        p2lbl.style.cssText="font-size:11px;font-weight:700;color:#b71c1c;text-transform:uppercase;margin-bottom:4px";
+        var p2s=mkSel(p2list.map(function(p){
+          return {v:p.model,l:p.model+" ("+p.cc+"cc = "+((p.cc*RPM2)/1000).toFixed(1)+" LPM)"};
+        }),"Select...",f.pumpModel2,function(v){
+          f.pumpModel2=v;
+          var found=p2list.filter(function(p){return p.model===v;})[0];
+          f.cc2=found?found.cc:0;
+        });
+        ap(lpm2W,p2lbl,p2s); lpm2W.style.display="block";
+        cyl2W.style.display="block";
+      } else {
+        lpm2W.style.display="none"; cyl2W.style.display="none";
+      }
+      updatePreview2();
+    }
 
-    var sta=mk("textarea"); sta.placeholder="Technical specifications..."; sta.oninput=function(){f.spec=sta.value;};
-    var ata=mk("textarea"); ata.placeholder="Extra accessories..."; ata.oninput=function(){f.acc=ata.value;};
-    card.appendChild(fg("Specifications",sta)); card.appendChild(fg("Accessories",ata));
+    var pumpSel2=mkSel(PUMP_MODELS2.map(function(m){
+      return {v:m,l:m+(isDbl2(m)?" — Double Pump":" — Single Pump")};
+    }),"Select Pump Model...",f.pump,function(v){
+      f.pump=v; f.pumpModel1=""; f.cc1=0; f.pumpModel2=""; f.cc2=0;
+      buildPumpSels(v);
+    });
+    card.appendChild(fg("Pump Model",pumpSel2));
+    card.appendChild(lpm1W);
+    card.appendChild(lpm2W);
+
+    var PISTON_DIAS=[63,70,80,90,100,110,125,140];
+    var ROD_DIAS=[30,36,40,45,50,60,70,80];
+
+    function diaSel(opts,key,ph){
+      var w=dv(""); w.style.cssText="display:flex;flex-direction:column;gap:3px";
+      var s=mk("select"); s.style.cssText="width:100%;border:1.5px solid #e0e0e0;border-radius:8px;padding:9px 10px;font-size:13px;font-weight:700;font-family:Arial,sans-serif;background:#fff;color:#333";
+      var def=mk("option"); def.value=""; def.textContent=ph; def.disabled=true; s.appendChild(def);
+      var hit=false;
+      opts.forEach(function(o){
+        var op=mk("option"); op.value=o; op.textContent=o+" mm";
+        if(String(o)===String(f[key])){op.selected=true;hit=true;}
+        s.appendChild(op);
+      });
+      if(!hit) s.selectedIndex=0;
+      s.onchange=function(){f[key]=s.value;updatePreview2();};
+      return fg(ph,s);
+    }
+
+    var c1h=dv("","Main Cylinder"); c1h.style.cssText="font-size:11px;font-weight:700;color:#1565c0;text-transform:uppercase;border-bottom:1px solid #e3f2fd;padding-bottom:4px;margin-top:6px";
+    card.appendChild(c1h);
+    card.appendChild(diaSel(PISTON_DIAS,"p1PistonDia","Piston Dia"));
+    card.appendChild(diaSel(ROD_DIAS,"p1RodDia","Rod Dia"));
+    card.appendChild(nf("Stroke (mm)","p1Stroke","e.g. 500"));
+
+    var c2h=dv("","Lifter Cylinder"); c2h.style.cssText="font-size:11px;font-weight:700;color:#b71c1c;text-transform:uppercase;border-bottom:1px solid #ffebee;padding-bottom:4px;margin-top:6px";
+    var LIFTER_PISTON_DIAS=[40,50,63,70];
+    var LIFTER_ROD_DIAS=[25,30,36,40];
+    cyl2W.appendChild(c2h);
+    cyl2W.appendChild(diaSel(LIFTER_PISTON_DIAS,"p2PistonDia","Piston Dia"));
+    cyl2W.appendChild(diaSel(LIFTER_ROD_DIAS,"p2RodDia","Rod Dia"));
+    cyl2W.appendChild(nf("Stroke (mm)","p2Stroke","e.g. 500"));
+    card.appendChild(cyl2W);
+
+    card.appendChild(nf("Model Number","model","e.g. GH-2025-001"));
+    card.appendChild(nf("Tank Size","tank","e.g. 200L"));
+    var sta=mk("textarea"); sta.placeholder="Technical specifications..."; sta.value=f.spec||"";
+    sta.oninput=function(){f.spec=sta.value;};
+    var ata=mk("textarea"); ata.placeholder="Extra accessories..."; ata.value=f.acc||"";
+    ata.oninput=function(){f.acc=ata.value;};
+    card.appendChild(fg("Specifications",sta));
+    card.appendChild(fg("Accessories",ata));
+
+    var prevDiv=dv(""); prevDiv.style.cssText="margin-top:12px;border-top:2px solid #1565c0;padding-top:10px;display:none";
+    var prevTitle=dv("","⚡ Hydraulic Performance Preview");
+    prevTitle.style.cssText="font-size:12px;font-weight:700;color:#1565c0;text-transform:uppercase;margin-bottom:8px";
+    prevDiv.appendChild(prevTitle);
+    var prevTbl=mk("table"); prevTbl.style.cssText="width:100%;border-collapse:collapse;font-size:12px";
+    prevDiv.appendChild(prevTbl);
+    card.appendChild(prevDiv);
+
+    function cylCalc2(cc,pd,rd,stroke){
+      var kW=(parseFloat(f.motorHP)||0)*0.7457;
+      var lpm=(parseFloat(cc)||0)*RPM2/1000;
+      pd=parseFloat(pd)||0; rd=parseFloat(rd)||0; stroke=parseFloat(stroke)||500;
+      if(!kW||!lpm||!pd) return null;
+      var maxP=(kW*600)/lpm;
+      var Ab=Math.PI*(pd/10)*(pd/10)/4;
+      var Aa=Math.PI*((pd/10)*(pd/10)-(rd/10)*(rd/10))/4;
+      var tonn=(maxP*Ab)/(100*9.81);
+      var extSpd=Ab>0?(lpm*1000/Ab/100):0;
+      var retSpd=Aa>0?(lpm*1000/Aa/100):0;
+      var extT=extSpd>0?((stroke/1000)/(extSpd/60)):0;
+      var retT=retSpd>0?((stroke/1000)/(retSpd/60)):0;
+      return {lpm:lpm.toFixed(1),maxP:maxP.toFixed(0),tonn:tonn.toFixed(2),
+              extSpd:extSpd.toFixed(3),retSpd:retSpd.toFixed(3),extT:extT.toFixed(1),retT:retT.toFixed(1)};
+    }
+
+    function applyMainCylAdj(r){
+      // Main cylinders: 2x tonnage, 1/2 speed, 2x time
+      return {lpm:r.lpm,maxP:r.maxP,
+              tonn:(parseFloat(r.tonn)*2).toFixed(2),
+              extSpd:(parseFloat(r.extSpd)/2).toFixed(3),
+              retSpd:(parseFloat(r.retSpd)/2).toFixed(3),
+              extT:(parseFloat(r.extT)*2).toFixed(1),
+              retT:(parseFloat(r.retT)*2).toFixed(1)};
+    }
+    function updatePreview2(){
+      var dbl=isDbl2(f.pump);
+      var r1raw=cylCalc2(f.cc1,f.p1PistonDia,f.p1RodDia,f.p1Stroke);
+      var r2raw=dbl?cylCalc2(f.cc2,f.p2PistonDia,f.p2RodDia,f.p2Stroke):null;
+      if(!r1raw){prevDiv.style.display="none";return;}
+      // Pump 1 (bigger LPM) = 2 main cylinders → 2x tonnage, 1/2 speed
+      // Pump 2 (smaller LPM) = broach lift cylinder → as calculated
+      var r1=applyMainCylAdj(r1raw); // always 2 main cylinders
+      var r2=r2raw;
+      prevDiv.style.display="block"; prevTbl.innerHTML="";
+      var thead=mk("thead"); var tr0=mk("tr");
+      var h1lbl=dbl?"Pump 1 (Main Cylinders)":"Value";
+      var h2lbl=dbl?"Pump 2 (Lifter Cylinder)":null;
+      [["Parameter",""],["Unit",""],
+       [h1lbl,""],[h2lbl,""]].filter(function(h){return h[0];}).forEach(function(h){
+        var th=mk("th"); th.textContent=h[0];
+        th.style.cssText="padding:6px 8px;background:#1565c0;color:#fff;font-size:10px;font-weight:700;text-align:"+(h[0]==="Parameter"?"left":"center");
+        tr0.appendChild(th);
+      });
+      thead.appendChild(tr0); prevTbl.appendChild(thead);
+      var tbody=mk("tbody");
+      [["Flow Rate","LPM",r1.lpm,r2?r2.lpm:null,"#e3f2fd","#1565c0"],
+       ["Max Pressure","bar",r1.maxP,r2?r2.maxP:null,"#ffebee","#c62828"],
+       ["Tonnage","T",r1.tonn,r2?r2.tonn:null,"#e8f5e9","#2e7d32"],
+       ["Extend Speed","m/min",r1.extSpd,r2?r2.extSpd:null,"#fff8e1","#e65100"],
+       ["Return Speed","m/min",r1.retSpd,r2?r2.retSpd:null,"#f3e5f5","#6a1b9a"],
+       ["Extend Time","sec",r1.extT,r2?r2.extT:null,"#e0f2f1","#00695c"],
+       ["Return Time","sec",r1.retT,r2?r2.retT:null,"#ede7f6","#4527a0"]
+      ].forEach(function(row){
+        var tr=mk("tr"); tr.style.borderBottom="1px solid #f0f0f0";
+        var t1=mk("td"); t1.textContent=row[0]; t1.style.cssText="padding:6px 8px;font-weight:700";
+        var t2=mk("td"); t2.textContent=row[1]; t2.style.cssText="padding:6px 8px;text-align:center;color:#999;font-size:11px";
+        var t3=mk("td"); t3.textContent=row[2]||"—"; t3.style.cssText="padding:5px 8px;text-align:center;font-weight:900;font-size:13px;color:"+row[5]+";background:"+row[4];
+        ap(tr,t1,t2,t3);
+        if(dbl){var t4=mk("td"); t4.textContent=row[3]||"—"; t4.style.cssText="padding:5px 8px;text-align:center;font-weight:900;font-size:13px;color:"+row[5]+";background:"+row[4]; tr.appendChild(t4);}
+        tbody.appendChild(tr);
+      });
+      prevTbl.appendChild(tbody);
+    }
+
+    if(f.pump) buildPumpSels(f.pump);
+    setTimeout(updatePreview2,50);
+
     card.appendChild(bt("bp fw mt14","🔒 Save & Lock Specs",function(){
       var up=Object.assign({},order,{specs:Object.assign({},f)});
       saveOrder(up);draw();
     }));
   }
   w.appendChild(card);
-
-
 
 
 
@@ -1608,9 +1778,14 @@ function drawInspect(order,insp,allKeys,pass,fail,filled,pct) {
   return w;
 }
 
-function drawSummary(insp) {
+function drawSummary(insp,order) {
+  var partCodes=(order&&order.partCodes)||[];
   var allKeys=[];
-  S.master.forEach(function(c){c.codes.forEach(function(k){k.dimensions.forEach(function(d){allKeys.push(c.id+"__"+k.id+"__"+d.id)})})});
+  S.master.forEach(function(c){c.codes.forEach(function(k){
+    if(partCodes.length===0||partCodes.indexOf(c.id+"__"+k.id)!==-1){
+      k.dimensions.forEach(function(d){allKeys.push(c.id+"__"+k.id+"__"+d.id)});
+    }
+  })});
   var total=allKeys.length,pass=0,fail=0;
   allKeys.forEach(function(k){var r=insp[k];if(r){if(r.status==="Pass")pass++;else if(r.status==="Fail")fail++;}});
   var w=dv(""); var sg=dv("sg");
@@ -1624,6 +1799,7 @@ function drawSummary(insp) {
   S.master.forEach(function(comp){
     comp.codes.forEach(function(code){
       if (!code.dimensions.length) return;
+      if(partCodes.length>0&&partCodes.indexOf(comp.id+"__"+code.id)===-1) return;
       var keys=code.dimensions.map(function(d){return comp.id+"__"+code.id+"__"+d.id});
       var t=keys.length,p=0,f=0;
       keys.forEach(function(k){var r=insp[k];if(r){if(r.status==="Pass")p++;else if(r.status==="Fail")f++;}});
@@ -2416,40 +2592,89 @@ function exportInspPDF(order,master,insp){
     })
   });
   var css="*{box-sizing:border-box;margin:0;padding:0}body{font-family:Arial,sans-serif;font-size:11px;padding:16px}.lh{border-bottom:3px solid #1565c0;padding-bottom:10px;margin-bottom:12px;display:flex;justify-content:space-between}.co{font-size:18px;font-weight:700;color:#1565c0}.mg{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:8px}.mf{background:#f5f5f5;padding:8px;border-radius:4px}.ml{font-size:9px;color:#888;font-weight:700;text-transform:uppercase;margin-bottom:2px}.sg{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px}.scc{background:#f5f5f5;padding:10px;text-align:center;border-radius:4px}.sn{font-size:20px;font-weight:700}table{width:100%;border-collapse:collapse;font-size:10px}th{background:#444;color:#fff;padding:5px 8px;text-align:left}td{padding:4px 8px;border-bottom:1px solid #eee}@media print{@page{size:A4;margin:10mm}body{padding:0}}";
-  var html="<!DOCTYPE html><html><head><meta charset='utf-8'><style>"+css+"<\/style><\/head><body><div class='lh'><div><div class='co'>&#9881; GAGAN HYDRAULICS<\/div><div style='font-size:12px;color:#555;margin-top:3px'>Inspection Report<\/div><\/div><div style='text-align:right;font-size:10px;color:#999'>"+new Date().toLocaleString("en-IN")+"<\/div><\/div><div class='mg'><div class='mf'><div class='ml'>Serial No<\/div>"+order.sn+"<\/div><div class='mf'><div class='ml'>PO No<\/div>"+order.po+"<\/div><div class='mf'><div class='ml'>Customer<\/div>"+order.cust+"<\/div><div class='mf'><div class='ml'>Delivery<\/div>"+fd(order.delivery)+"<\/div><\/div>"+(sp.model?"<div class='mg'><div class='mf'><div class='ml'>Model<\/div>"+sp.model+"<\/div><div class='mf'><div class='ml'>Motor<\/div>"+(sp.motor||"—")+"<\/div><div class='mf'><div class='ml'>Pump<\/div>"+(sp.pump||"—")+"<\/div><div class='mf'><div class='ml'>Tank Size<\/div>"+(sp.tank||"—")+"<\/div><\/div>":"")+(sp.cyl||sp.spec||sp.acc?"<div class='mg'><div class='mf'><div class='ml'>Cylinder Size<\/div>"+(sp.cyl||"—")+"<\/div><div class='mf'><div class='ml'>Specifications<\/div>"+(sp.spec||"—")+"<\/div><div class='mf' style='grid-column:span 2'><div class='ml'>Accessories<\/div>"+(sp.acc||"—")+"<\/div><\/div>":"")+(order.hydCalc?(function(hc){
-    var kW=(hc.motorHP||0)*0.7457;
-    function pCalc(pre){
-      var flow=((hc[pre+"Disp"]||0)*(hc.motorRPM||0))/1000;
-      var maxP=flow>0?((kW*600)/flow):0;
-      var pd=(hc[pre+"PistonDia"]||0)/10;
-      var rd=(hc[pre+"RodDia"]||0)/10;
-      var Ab=Math.PI*pd*pd/4;
-      var Aa=Math.PI*(pd*pd-rd*rd)/4;
-      var tonn=Ab>0?(maxP*Ab)/(10*9.81):0;
-      var extSpd=Ab>0?(flow*1000/Ab/100):0;
-      var retSpd=Aa>0?(flow*1000/Aa/100):0;
-      var extT=extSpd>0?((hc[pre+"Stroke"]||0)/1000/(extSpd/60)):0;
-      var retT=retSpd>0?((hc[pre+"Stroke"]||0)/1000/(retSpd/60)):0;
-      return {flow:flow.toFixed(1),maxP:maxP.toFixed(0),tonn:tonn.toFixed(2),extSpd:extSpd.toFixed(3),retSpd:retSpd.toFixed(3),extT:extT.toFixed(1),retT:retT.toFixed(1)};
+  var html="<!DOCTYPE html><html><head><meta charset='utf-8'><style>"+css+"<\/style><\/head><body><div class='lh'><div><div class='co'>&#9881; GAGAN HYDRAULICS<\/div><div style='font-size:12px;color:#555;margin-top:3px'>Inspection Report<\/div><\/div><div style='text-align:right;font-size:10px;color:#999'>"+new Date().toLocaleString("en-IN")+"<\/div><\/div><div class='mg'><div class='mf'><div class='ml'>Serial No<\/div>"+order.sn+"<\/div><div class='mf'><div class='ml'>PO No<\/div>"+order.po+"<\/div><div class='mf'><div class='ml'>Customer<\/div>"+order.cust+"<\/div><div class='mf'><div class='ml'>Delivery<\/div>"+fd(order.delivery)+"<\/div><\/div>"+(sp?(function(sp){
+    var RPM=1440;
+    var isDbl=["PVR 1050","PVR 50150"].indexOf(sp.pump||"")!==-1;
+    var kW=(parseFloat(sp.motorHP)||0)*0.7457;
+    function cylCalcPDF(cc,pd,rd,stroke,isMain){
+      var lpm=(parseFloat(cc)||0)*RPM/1000;
+      pd=parseFloat(pd)||0; rd=parseFloat(rd)||0; stroke=parseFloat(stroke)||500;
+      if(!kW||!lpm||!pd) return null;
+      var maxP=(kW*600)/lpm;
+      var Ab=Math.PI*(pd/10)*(pd/10)/4;
+      var Aa=Math.PI*((pd/10)*(pd/10)-(rd/10)*(rd/10))/4;
+      var tonn=(maxP*Ab)/(100*9.81);
+      var extSpd=Ab>0?(lpm*1000/Ab/100):0;
+      var retSpd=Aa>0?(lpm*1000/Aa/100):0;
+      var extT=extSpd>0?((stroke/1000)/(extSpd/60)):0;
+      var retT=retSpd>0?((stroke/1000)/(retSpd/60)):0;
+      if(isMain){tonn*=2;extSpd/=2;retSpd/=2;extT*=2;retT*=2;}
+      return {lpm:lpm.toFixed(1),maxP:maxP.toFixed(0),tonn:tonn.toFixed(2),
+              extSpd:extSpd.toFixed(3),retSpd:retSpd.toFixed(3),
+              extT:extT.toFixed(1),retT:retT.toFixed(1)};
     }
-    var r1=pCalc("p1"); var r2=pCalc("p2");
-    return "<div style='margin-top:8px;border:1px solid #e0e0e0;border-radius:6px;overflow:hidden'>"
-      +"<div style='background:#0d47a1;color:#fff;padding:6px 10px;font-size:10px;font-weight:700;text-transform:uppercase'>🔧 Hydraulic Calculator — Motor: "+(hc.motorHP||"—")+"HP @ "+(hc.motorRPM||"—")+"RPM</div>"
-      +"<table style='width:100%;border-collapse:collapse;font-size:10px'>"
-      +"<thead><tr style='background:#e3f2fd'><th style='padding:5px 8px;text-align:left'>Parameter</th><th style='padding:5px 8px;text-align:center'>Pump 1 — Cyl 1</th><th style='padding:5px 8px;text-align:center'>Pump 2 — Cyl 2</th></tr></thead>"
-      +"<tbody>"
-      +"<tr><td style='padding:4px 8px;font-weight:700'>Pump Displacement</td><td style='text-align:center;padding:4px 8px'>"+(hc.p1Disp||"—")+" cc/rev</td><td style='text-align:center;padding:4px 8px'>"+(hc.p2Disp||"—")+" cc/rev</td></tr>"
-      +"<tr style='background:#f5f5f5'><td style='padding:4px 8px;font-weight:700'>Piston Dia / Rod Dia</td><td style='text-align:center;padding:4px 8px'>"+(hc.p1PistonDia||"—")+"mm / "+(hc.p1RodDia||"—")+"mm</td><td style='text-align:center;padding:4px 8px'>"+(hc.p2PistonDia||"—")+"mm / "+(hc.p2RodDia||"—")+"mm</td></tr>"
-      +"<tr><td style='padding:4px 8px;font-weight:700'>Stroke</td><td style='text-align:center;padding:4px 8px'>"+(hc.p1Stroke||"—")+"mm</td><td style='text-align:center;padding:4px 8px'>"+(hc.p2Stroke||"—")+"mm</td></tr>"
-      +"<tr style='background:#e8f5e9'><td style='padding:4px 8px;font-weight:700'>Flow Rate</td><td style='text-align:center;padding:4px 8px;font-weight:700;color:#1565c0'>"+r1.flow+" L/min</td><td style='text-align:center;padding:4px 8px;font-weight:700;color:#1565c0'>"+r2.flow+" L/min</td></tr>"
-      +"<tr style='background:#ffebee'><td style='padding:4px 8px;font-weight:700'>Max Pressure</td><td style='text-align:center;padding:4px 8px;font-weight:700;color:#c62828'>"+r1.maxP+" bar</td><td style='text-align:center;padding:4px 8px;font-weight:700;color:#c62828'>"+r2.maxP+" bar</td></tr>"
-      +"<tr style='background:#e8f5e9'><td style='padding:4px 8px;font-weight:700'>Tonnage</td><td style='text-align:center;padding:4px 8px;font-weight:700;color:#2e7d32'>"+r1.tonn+" T</td><td style='text-align:center;padding:4px 8px;font-weight:700;color:#2e7d32'>"+r2.tonn+" T</td></tr>"
-      +"<tr><td style='padding:4px 8px;font-weight:700'>Extend Speed</td><td style='text-align:center;padding:4px 8px'>"+r1.extSpd+" m/min</td><td style='text-align:center;padding:4px 8px'>"+r2.extSpd+" m/min</td></tr>"
-      +"<tr style='background:#f5f5f5'><td style='padding:4px 8px;font-weight:700'>Return Speed</td><td style='text-align:center;padding:4px 8px'>"+r1.retSpd+" m/min</td><td style='text-align:center;padding:4px 8px'>"+r2.retSpd+" m/min</td></tr>"
-      +"<tr><td style='padding:4px 8px;font-weight:700'>Extend Time</td><td style='text-align:center;padding:4px 8px'>"+r1.extT+" sec</td><td style='text-align:center;padding:4px 8px'>"+r2.extT+" sec</td></tr>"
-      +"<tr style='background:#f5f5f5'><td style='padding:4px 8px;font-weight:700'>Return Time</td><td style='text-align:center;padding:4px 8px'>"+r1.retT+" sec</td><td style='text-align:center;padding:4px 8px'>"+r2.retT+" sec</td></tr>"
-      +"</tbody></table></div>";
-  })(order.hydCalc):"")+"<div class='sg'><div class='scc'><div class='sn'>"+total+"<\/div><div>Total<\/div><\/div><div class='scc'><div class='sn' style='color:#2e7d32'>"+pass+"<\/div><div>Pass<\/div><\/div><div class='scc'><div class='sn' style='color:#c62828'>"+fail+"<\/div><div>Fail<\/div><\/div><div class='scc'><div class='sn' style='color:#888'>"+(total-pass-fail)+"<\/div><div>Pending<\/div><\/div><\/div><table><thead><tr><th>Dimension<\/th><th>Standard<\/th><th>Tolerance<\/th><th>Unit<\/th><th>Actual<\/th><th>Status<\/th><th>Inspector<\/th><th>Remarks<\/th><\/tr><\/thead><tbody>"+rows+"<\/tbody><\/table><\/body><\/html>";
+    var r1=cylCalcPDF(sp.cc1,sp.p1PistonDia,sp.p1RodDia,sp.p1Stroke,true);
+    var r2=isDbl?cylCalcPDF(sp.cc2,sp.p2PistonDia,sp.p2RodDia,sp.p2Stroke,false):null;
+    var s="<div style='margin:6px 0;border:1px solid #e0e0e0;border-radius:6px;overflow:hidden;font-size:11px'>";
+    s+="<div style='background:#1565c0;color:#fff;padding:6px 12px;font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:0.5px'>Machine Specifications</div>";
+    s+="<div style='display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:0;border-bottom:1px solid #e0e0e0'>";
+    s+="<div style='padding:5px 8px;border-right:1px solid #eee'><div style='font-size:9px;color:#888;text-transform:uppercase'>Model</div><div style='font-weight:700'>"+(sp.model||"—")+"</div></div>";
+    s+="<div style='padding:5px 8px;border-right:1px solid #eee'><div style='font-size:9px;color:#888;text-transform:uppercase'>Motor</div><div style='font-weight:700'>"+(sp.motorHP||"—")+" HP @ 1440 RPM</div></div>";
+    s+="<div style='padding:5px 8px;border-right:1px solid #eee'><div style='font-size:9px;color:#888;text-transform:uppercase'>Pump</div><div style='font-weight:700'>"+(sp.pump||"—")+"</div></div>";
+    s+="<div style='padding:5px 8px'><div style='font-size:9px;color:#888;text-transform:uppercase'>Tank</div><div style='font-weight:700'>"+(sp.tank||"—")+"</div></div>";
+    s+="</div>";
+    if(sp.pumpModel1||sp.p1PistonDia){
+      s+="<div style='display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:0;border-bottom:1px solid #e0e0e0;background:#f8f9fa'>";
+      s+="<div style='padding:5px 8px;border-right:1px solid #eee'><div style='font-size:9px;color:#888;text-transform:uppercase'>Pump 1 Model</div><div style='font-weight:700'>"+(sp.pumpModel1||"—")+"</div></div>";
+      s+="<div style='padding:5px 8px;border-right:1px solid #eee'><div style='font-size:9px;color:#888;text-transform:uppercase'>Main Cyl (Bore×Rod)</div><div style='font-weight:700'>"+(sp.p1PistonDia||"—")+"×"+(sp.p1RodDia||"—")+" mm</div></div>";
+      s+="<div style='padding:5px 8px;border-right:1px solid #eee'><div style='font-size:9px;color:#888;text-transform:uppercase'>Stroke</div><div style='font-weight:700'>"+(sp.p1Stroke||"—")+" mm</div></div>";
+      s+="<div style='padding:5px 8px'><div style='font-size:9px;color:#888;text-transform:uppercase'>Displacement</div><div style='font-weight:700'>"+(sp.cc1||"—")+" cc/rev</div></div>";
+      s+="</div>";
+    }
+    if(isDbl&&(sp.pumpModel2||sp.p2PistonDia)){
+      s+="<div style='display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:0;border-bottom:1px solid #e0e0e0'>";
+      s+="<div style='padding:5px 8px;border-right:1px solid #eee'><div style='font-size:9px;color:#888;text-transform:uppercase'>Pump 2 Model</div><div style='font-weight:700'>"+(sp.pumpModel2||"—")+"</div></div>";
+      s+="<div style='padding:5px 8px;border-right:1px solid #eee'><div style='font-size:9px;color:#888;text-transform:uppercase'>Lifter Cyl (Bore×Rod)</div><div style='font-weight:700'>"+(sp.p2PistonDia||"—")+"×"+(sp.p2RodDia||"—")+" mm</div></div>";
+      s+="<div style='padding:5px 8px;border-right:1px solid #eee'><div style='font-size:9px;color:#888;text-transform:uppercase'>Stroke</div><div style='font-weight:700'>"+(sp.p2Stroke||"—")+" mm</div></div>";
+      s+="<div style='padding:5px 8px'><div style='font-size:9px;color:#888;text-transform:uppercase'>Displacement</div><div style='font-weight:700'>"+(sp.cc2||"—")+" cc/rev</div></div>";
+      s+="</div>";
+    }
+    if(sp.spec||sp.acc){
+      s+="<div style='display:grid;grid-template-columns:1fr 1fr;gap:0;border-bottom:1px solid #e0e0e0;background:#f8f9fa'>";
+      if(sp.spec) s+="<div style='padding:5px 8px;border-right:1px solid #eee'><div style='font-size:9px;color:#888;text-transform:uppercase'>Specifications</div><div>"+(sp.spec||"—")+"</div></div>";
+      if(sp.acc) s+="<div style='padding:5px 8px'><div style='font-size:9px;color:#888;text-transform:uppercase'>Accessories</div><div>"+(sp.acc||"—")+"</div></div>";
+      s+="</div>";
+    }
+    if(r1){
+      s+="<div style='background:#1565c0;color:#fff;padding:5px 12px;font-weight:700;font-size:10px;text-transform:uppercase'>⚡ Hydraulic Performance</div>";
+      s+="<table style='width:100%;border-collapse:collapse;font-size:10px'>";
+      s+="<thead><tr style='background:#e3f2fd'>";
+      s+="<th style='padding:4px 8px;text-align:left;font-weight:700'>Parameter</th><th style='padding:4px 8px;text-align:center'>Unit</th>";
+      s+="<th style='padding:4px 8px;text-align:center'>"+(isDbl?"Pump 1 — Main Cyls (×2)":"Main Cylinders (×2)")+"</th>";
+      if(r2) s+="<th style='padding:4px 8px;text-align:center'>Pump 2 — Lifter Cyl</th>";
+      s+="</tr></thead><tbody>";
+      var rows=[
+        ["Flow Rate","LPM",r1.lpm,r2?r2.lpm:null,"#e3f2fd","#1565c0"],
+        ["Max Pressure","bar",r1.maxP,r2?r2.maxP:null,"#ffebee","#c62828"],
+        ["Tonnage","T",r1.tonn,r2?r2.tonn:null,"#e8f5e9","#2e7d32"],
+        ["Extend Speed","m/min",r1.extSpd,r2?r2.extSpd:null,"#fff8e1","#e65100"],
+        ["Return Speed","m/min",r1.retSpd,r2?r2.retSpd:null,"#f3e5f5","#6a1b9a"],
+        ["Extend Time","sec",r1.extT,r2?r2.extT:null,"#e0f2f1","#00695c"],
+        ["Return Time","sec",r1.retT,r2?r2.retT:null,"#ede7f6","#4527a0"]
+      ];
+      rows.forEach(function(row,ri){
+        s+="<tr style='border-bottom:1px solid #f0f0f0;"+(ri%2?"background:#fafafa":"")+"'>";
+        s+="<td style='padding:4px 8px;font-weight:700'>"+row[0]+"</td>";
+        s+="<td style='padding:4px 8px;text-align:center;color:#888'>"+row[1]+"</td>";
+        s+="<td style='padding:4px 8px;text-align:center;font-weight:900;color:"+row[5]+";background:"+row[4]+"'>"+row[2]+"</td>";
+        if(r2) s+="<td style='padding:4px 8px;text-align:center;font-weight:900;color:"+row[5]+";background:"+row[4]+"'>"+(row[3]||"—")+"</td>";
+        s+="</tr>";
+      });
+      s+="</tbody></table>";
+    }
+    s+="</div>";
+    return s;
+  })(order.specs):"")+"<div class='sg'><div class='scc'><div class='sn'>"+total+"<\/div><div>Total<\/div><\/div><div class='scc'><div class='sn' style='color:#2e7d32'>"+pass+"<\/div><div>Pass<\/div><\/div><div class='scc'><div class='sn' style='color:#c62828'>"+fail+"<\/div><div>Fail<\/div><\/div><div class='scc'><div class='sn' style='color:#888'>"+(total-pass-fail)+"<\/div><div>Pending<\/div><\/div><\/div><table><thead><tr><th>Dimension<\/th><th>Standard<\/th><th>Tolerance<\/th><th>Unit<\/th><th>Actual<\/th><th>Status<\/th><th>Inspector<\/th><th>Remarks<\/th><\/tr><\/thead><tbody>"+rows+"<\/tbody><\/table><\/body><\/html>";
   pdfOverlay("Inspection Report",html);
 }
 
